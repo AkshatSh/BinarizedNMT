@@ -79,11 +79,25 @@ If we have time, this is state of the art which is highly paralleized but trains
 
 #### CPU Time and Computation
 
+What we hope to optimize, to enable edge devices since we can't necessairly rely on GPUs.
+
 #### GPU Time and Computation
+
+Most modern phones and devices have GPUs optimizing this would also be helpful.
 
 #### BLEU Score
 
+Standard metric for Machine Translation accuracy.
+
 #### Size of Model
+
+Since models are stored on computers and phones to run locally, we want to minimize the size of the model as well.
+
+## Applications
+
+Just ideas for different applications here:
+
+- Live Stream Translation
 
 ## References
 
