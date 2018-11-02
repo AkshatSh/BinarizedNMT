@@ -18,11 +18,58 @@ To make the scope a bit more manageable we will specifically look at English to 
 
 We will implement the models in PyTorch and train these models on a mixture of colab machines, attu gpu machines, and personal computers.
 
+## Implementation
+
+### Components to be Implemented
+
+#### Binarized Convolution
+
+
+#### Self Attention
+
+#### Multihead Attention
+
+### Models
+
+#### Seq2Seq
+
+Following the implementation of the Seq2Seq model, and Seq2Seq with attention, we want to experiment how a simple LSTM based sequence model handles our Machine Translation task as a baseline benchmark.
+
+- [ ] Adjust Pytorch tutorial for our case
+- [ ] Tune Model for optimal performance
+- [ ] Compare runtime of inference on CPU and GPU 
+- [ ] Get metric Benchmarks
+
+#### QRNN (Quasi Recurrent Neural Networks)
+
+
+#### Convolutional Sequence Learning
+
+
+#### Attention Transformer
+
+### Metircs to Analyze
+
+#### CPU Time and Computation
+
+#### GPU Time and Computation
+
+#### BLEU Score
+
+#### Size of Model
+
 ## References
+
+### Papers
 
 1. Xnor - Net: [Paper](https://arxiv.org/abs/1603.05279)
 2. Multi bit quantization networks: [Paper](https://arxiv.org/pdf/1802.00150.pdf)
 3. Binarized LSTM Language Model: [Paper](http://aclweb.org/anthology/N18-1192)
 4. Fair Seq Convolutinal Sequence Learning: [Paper](https://arxiv.org/pdf/1705.03122.pdf)
 5. Quasi Recurrent Networks: [Paper](https://arxiv.org/abs/1611.01576 )
-6. WMT 14 Translation Task [Paper](http://www.statmt.org/wmt14/translation-task.html) 
+6. WMT 14 Translation Task [Paper](http://www.statmt.org/wmt14/translation-task.html)
+7. Attention is all you need [Paper](https://arxiv.org/abs/1706.03762)
+
+### Githubs and Links
+
+1. [Pytorch MT Seq2Seq Tutorial](https://pytorch.org/tutorials/intermediate/seq2seq_translation_tutorial.html)
