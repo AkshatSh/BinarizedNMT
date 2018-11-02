@@ -35,6 +35,9 @@ This is the convolution introduced in the xnor-net paper for binary convolution,
 
 Self attention is useful for most of these networks so the network can learn that some words are more importnat than the other. The majority of the network implementations have them defined in the network, abstracting it away will help us keep things consistent.
 
+- [ ] Implement Transformer
+- [ ] Add tests
+
 #### Multihead Attention
 
 This was defined in the attention is all you need paper [7]. If we implement the attention transformer this will be useful. An annotated guide for the transformer is [3].
