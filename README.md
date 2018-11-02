@@ -22,12 +22,22 @@ We will implement the models in PyTorch and train these models on a mixture of c
 
 ### Components to be Implemented
 
+These are the list of components to be implemented that will be useful in all the differnet models we will use.
+
 #### Binarized Convolution
 
+This is the convolution introduced in the xnor-net paper for binary convolution, this is what will do the majority of the space saving and computation saving. The paper [1] has the definition of the component mathematically and [2] is a pytorch implementation of the xnor-net.
+
+- [] Implement Transformer
+- [] Add tests
 
 #### Self Attention
 
+Self attention is useful for most of these networks so the network can learn that some words are more importnat than the other. The majority of the network implementations have them defined in the network, abstracting it away will help us keep things consistent.
+
 #### Multihead Attention
+
+This was defined in the attention is all you need paper [7]. If we implement the attention transformer this will be useful. An annotated guide for the transformer is [3].
 
 ### Models
 
@@ -37,16 +47,33 @@ Following the implementation of the Seq2Seq model, and Seq2Seq with attention, w
 
 - [ ] Adjust Pytorch tutorial for our case
 - [ ] Tune Model for optimal performance
-- [ ] Compare runtime of inference on CPU and GPU 
+- [ ] Compare runtime of inference on CPU and GPU
 - [ ] Get metric Benchmarks
 
 #### QRNN (Quasi Recurrent Neural Networks)
 
+A network developed by Salesforce Research which replaces LSTM cells in recurrent networks with convolutional networks, making the network much more parallel. We wil investigate a network that can replace these convlutions with binary convolutions. Implementation of the paper by the researchers is in [4] and the paper itself in [5] (said to be 17x faster than cudNN LSTM).
+
+- [ ] Adjust QRNN to work for our case
+- [ ] Implement Binarized QRNN
+- [ ] Tune Binraized QRNN
+- [ ] Compare runtime of inference on CPU and GPU
+- [ ] Get metric Benchmarks
+
 
 #### Convolutional Sequence Learning
 
+A network developed by Facebook Research (FAIR) which does not rely on RNNs but rather an encoder decoder model with convolutions instead. This has the most promise since it relies the most on convolutions. The paper [4] and github [5] have the materials necessary.
+
+- [ ] Adjust ConvSeq to work for our case
+- [ ] Implement Binarized ConvSeq
+- [ ] Tune Binraized ConvSeq
+- [ ] Compare runtime of inference on CPU and GPU
+- [ ] Get metric Benchmarks
 
 #### Attention Transformer
+
+If we have time, this is state of the art which is highly paralleized but trains on Googles TPUs, which require a lot memory, can we implement a biniarized version of this.
 
 ### Metircs to Analyze
 
@@ -73,3 +100,7 @@ Following the implementation of the Seq2Seq model, and Seq2Seq with attention, w
 ### Githubs and Links
 
 1. [Pytorch MT Seq2Seq Tutorial](https://pytorch.org/tutorials/intermediate/seq2seq_translation_tutorial.html)
+2. [Xnor NET Pytorch](https://github.com/jiecaoyu/XNOR-Net-PyTorch)
+3. [Annotated Transformer (Harvard NLP)](http://nlp.seas.harvard.edu/2018/04/03/attention.html)
+4. [Salesforce QRNN Pytorch](https://github.com/salesforce/pytorch-qrnn)
+5. [Fair Seq](https://github.com/pytorch/fairseq)
