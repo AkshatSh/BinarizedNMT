@@ -28,8 +28,8 @@ These are the list of components to be implemented that will be useful in all th
 
 This is the convolution introduced in the xnor-net paper for binary convolution, this is what will do the majority of the space saving and computation saving. The paper [1] has the definition of the component mathematically and [2] is a pytorch implementation of the xnor-net.
 
-- [] Implement Transformer
-- [] Add tests
+- [ ] Implement Transformer
+- [ ] Add tests
 
 #### Self Attention
 
