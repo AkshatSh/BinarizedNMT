@@ -102,6 +102,38 @@ Just ideas for different applications here:
 
 - Live Stream Translation
 
+## Set Up
+
+To set up the python code create a python3 environment with the following:
+
+```bash
+
+# create a virtual environment
+$ python3 -m venv env
+
+# activate environment
+$ source env/bin/activate
+
+# install all requirements
+$ pip install -r requirements.txt
+```
+
+If you add a new package you will have to update the requirements.txt with the following command:
+
+```bash
+
+# add new packages
+$ pip freeze > requirements.txt
+```
+
+And if you want to deactivate the virtual environment
+
+```bash
+
+# decativate the virtual env
+$ deactivate
+```
+
 ## References
 
 ### Papers
