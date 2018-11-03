@@ -31,6 +31,13 @@ This is the convolution introduced in the xnor-net paper for binary convolution,
 - [ ] Implement Transformer
 - [ ] Add tests
 
+#### Binarized LSTM Cell
+
+This is the LSTM introduced in [3]. It works on reducing the space in word embeddings and language models. This could be used in the sequence to sequence model in efforts to reduce space as well.
+
+- [ ] Implement Transformer
+- [ ] Add tests
+
 #### Self Attention
 
 Self attention is useful for most of these networks so the network can learn that some words are more importnat than the other. The majority of the network implementations have them defined in the network, abstracting it away will help us keep things consistent.
@@ -59,7 +66,7 @@ A network developed by Salesforce Research which replaces LSTM cells in recurren
 
 - [ ] Adjust QRNN to work for our case
 - [ ] Implement Binarized QRNN
-- [ ] Tune Binraized QRNN
+- [ ] Tune Binarized QRNN
 - [ ] Compare runtime of inference on CPU and GPU
 - [ ] Get metric Benchmarks
 
@@ -70,7 +77,7 @@ A network developed by Facebook Research (FAIR) which does not rely on RNNs but 
 
 - [ ] Adjust ConvSeq to work for our case
 - [ ] Implement Binarized ConvSeq
-- [ ] Tune Binraized ConvSeq
+- [ ] Tune Binarized ConvSeq
 - [ ] Compare runtime of inference on CPU and GPU
 - [ ] Get metric Benchmarks
 
