@@ -111,6 +111,15 @@ Just ideas for different applications here:
 
 ## Set Up
 
+A short cut to do all the setup:
+
+```bash
+
+# creates a virutal environment and downloads the data
+$ bash setup.sh
+
+```
+
 To set up the python code create a python3 environment with the following:
 
 ```bash
