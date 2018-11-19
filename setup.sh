@@ -11,7 +11,6 @@ if [ ! -d "$DIR_ENV" ]; then
   python3 -m venv env
   source env/bin/activate
   pip install -r requirements.txt
-  deactivate
 fi
 
 # download dataset
@@ -22,4 +21,9 @@ if [ ! -d "$DATA_DIR" ]; then
   mkdir data-bin
   tar -xvjf wmt14.v2.en-fr.newstest2014.tar.bz2 -C data-bin
   rm wmt14.v2.en-fr.newstest2014.tar.bz2
+  cd data
+  bash prepare.sh
+  cd ..
+  python translation/shard_dataset.py
+  python translation/sharded_dataset.py
 fi
