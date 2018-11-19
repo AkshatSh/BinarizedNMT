@@ -7,7 +7,7 @@ import torch.utils.data as data
 import random
 from typing import Tuple
 
-from vocab import Vocabulary, save_vocab, build_vocab
+from vocab import Vocabulary, save_vocab, build_vocab, load_vocab
 from utils import get_num_lines
 from constants import WMT14_EN_FR_TRAIN_SHARD, TRAIN_EN_VOCAB_FILE, TRAIN_FR_VOCAB_FILE
 
@@ -65,6 +65,13 @@ class ShardedCSVDataset(ShardedDataset):
     
     def __len__(self):
         return sum(self.file_counts.values())
+    
+    def reset(self):
+        self.curr_file = None
+        self.curr_file_name = None
+        self.curr_idx = 0
+        self.curr_data = []
+        self.shard_idx = -1
     
     def __next__(self) -> Entry_Type:
         if self.curr_file is None or self.curr_idx >= self.file_counts[self.curr_file_name]:
@@ -137,6 +144,8 @@ def save_shard_vocab() -> None:
         unk_cutoff=2
     )
 
+    d.reset()
+
     fr_vocab = build_vocab(
         d,
         fr_fn,
@@ -146,5 +155,14 @@ def save_shard_vocab() -> None:
     save_vocab(en_vocab, TRAIN_EN_VOCAB_FILE)
     save_vocab(fr_vocab, TRAIN_FR_VOCAB_FILE)
 
+def test() -> None:
+    en_vocab = load_vocab(TRAIN_EN_VOCAB_FILE)
+    fr_vocab = load_vocab(TRAIN_FR_VOCAB_FILE)
+
+    print(
+        "English Vocab Size: {} French Vocab Size: {}".format(len(en_vocab), len(fr_vocab))
+    )
+
 if __name__ == "__main__":
     save_shard_vocab()
+    test()
