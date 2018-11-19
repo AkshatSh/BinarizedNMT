@@ -108,13 +108,21 @@ class ShardedBatchedIterator(object):
         data: ShardedDataset,
         en_vocab: Vocabulary,
         fr_vocab: Vocabulary,
+        max_sequence_length: int,
     ):
         self.batch_size = batch_size
         self.data = data
+        self.en_vocab = en_vocab
+        self.fr_vocab = fr_vocab
+        self.max_sequence_length = max_sequence_length
     
     def __next__(self) -> torch.Tensor:
         count = 0
         curr = next(self.data, None)
+
+        if curr is None:
+            raise StopIteration
+
         src = []
         trg = []
         while curr is not None and count < batch_size:
@@ -124,6 +132,14 @@ class ShardedBatchedIterator(object):
             count += 1
 
         # res has a series of tuples that are the src and the output
+        src_tensor = torch.Tensor((count, self.max_sequence_length)).long()
+        trg_tensor = torch.Tensor((count, self.max_sequence_length)).long()
+
+        for i in range(count):
+            src_tensor[i][:len(src[i])] = [self.en_vocab.word2idx(word) for word in src[i]]
+            trg_tensor[i][:len(trg[i])] = [self.fr_vocab.word2idx(word) for word in trg[i]]
+        
+        return src_tensor, trg_tensor
 
 def save_shard_vocab() -> None:
     '''
