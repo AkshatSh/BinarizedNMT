@@ -102,6 +102,11 @@ class ShardedCSVDataset(ShardedDataset):
         return val
 
 class ShardedBatchedIterator(object):
+    '''
+    This is a batched iterator for the sharded dataset object.
+    Given a batch size and english and french vocab, it returns a tensor
+    of size (batch x max_sequence_length) for english in src and french in trg
+    '''
     def __init__(
         self, 
         batch_size: int,
@@ -116,6 +121,12 @@ class ShardedBatchedIterator(object):
         self.fr_vocab = fr_vocab
         self.max_sequence_length = max_sequence_length
     
+    def __len__(self):
+        '''
+        Number of batches in the dataset
+        '''
+        return len(self.data) / self.batch_size
+    
     def __next__(self) -> torch.Tensor:
         count = 0
         curr = next(self.data, None)
@@ -128,7 +139,7 @@ class ShardedBatchedIterator(object):
         while curr is not None and count < batch_size:
             src.append(curr[0])
             trg.append(curr[1])
-            curr = next(self.data)
+            curr = next(self.data, None)
             count += 1
 
         # res has a series of tuples that are the src and the output
