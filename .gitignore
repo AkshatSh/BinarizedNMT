@@ -105,3 +105,4 @@ venv.bak/
 
 # ignore data-bin
 data-bin/
+data/
