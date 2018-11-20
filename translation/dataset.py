@@ -5,11 +5,11 @@ import torchtext
 import torchvision.transforms as transforms
 import torch.utils.data as data
 import random
-from typing import Tuple
+from typing import Tuple, Callable
 
 from vocab import Vocabulary, save_vocab, build_vocab, load_vocab
 from utils import get_num_lines
-from constants import WMT14_EN_FR_TRAIN_SHARD, TRAIN_EN_VOCAB_FILE, TRAIN_FR_VOCAB_FILE
+from constants import WMT14_EN_FR_TRAIN_SHARD, TRAIN_EN_VOCAB_FILE, TRAIN_FR_VOCAB_FILE, UNKNOWN_TOKEN
 
 # stores the entry src, trg for
 # translation
@@ -129,8 +129,8 @@ class DualFileDataset(object):
         src_file = open(self.src_file_name)
         trg_file = open(self.trg_file_name)
 
-        src_file_length = get_num_lines(src_file)
-        trg_file_length = get_num_lines(trg_file)
+        src_file_length = get_num_lines(self.src_file_name)
+        trg_file_length = get_num_lines(self.trg_file_name)
 
         assert(src_file_length == trg_file_length)
 
@@ -152,16 +152,16 @@ class DualFileDataset(object):
         trg_file.close()
     
     def __next__(self) -> Entry_Type:
-        if self.idx >= self.len:
+        if self.idx >= len(self.data):
             raise StopIteration
         
-        val = self.data[i]
+        val = self.data[self.idx]
 
         self.idx += 1
         return val
 
 
-class ShardedBatchedIterator(object):
+class BatchedIterator(object):
     '''
     This is a batched iterator for the sharded dataset object.
     Given a batch size and english and french vocab, it returns a tensor
@@ -174,12 +174,14 @@ class ShardedBatchedIterator(object):
         en_vocab: Vocabulary,
         fr_vocab: Vocabulary,
         max_sequence_length: int,
+        tokenize_fn: Callable[[str], str] = lambda x: x.split(),
     ):
         self.batch_size = batch_size
         self.data = data
         self.en_vocab = en_vocab
         self.fr_vocab = fr_vocab
         self.max_sequence_length = max_sequence_length
+        self.tokenize_fn = tokenize_fn
     
     def __len__(self):
         '''
@@ -196,21 +198,45 @@ class ShardedBatchedIterator(object):
 
         src = []
         trg = []
-        while curr is not None and count < batch_size:
-            src.append(curr[0])
-            trg.append(curr[1])
+
+        while curr is not None and count < self.batch_size:
+            src.append(self.tokenize_fn(curr[0]))
+            trg.append(self.tokenize_fn(curr[1]))
             curr = next(self.data, None)
             count += 1
+        
+        indexes = [i for i in range(len(src))]
+        indexes.sort(key=lambda i: len(src[i]), reverse=True)
+        indexes = torch.Tensor(indexes).long()
+        src_lengths = torch.LongTensor([len(item) for item in src])
+        trg_lengths = torch.LongTensor([len(item) for item in trg])
 
         # res has a series of tuples that are the src and the output
-        src_tensor = torch.Tensor((count, self.max_sequence_length)).long()
-        trg_tensor = torch.Tensor((count, self.max_sequence_length)).long()
+        src_tensor = torch.Tensor(
+            count,
+            max(src_lengths),
+        ).long().fill_(self.en_vocab.word2idx(UNKNOWN_TOKEN))
+
+        trg_tensor = torch.Tensor(
+            count,
+            max(trg_lengths),
+        ).long().fill_(self.fr_vocab.word2idx(UNKNOWN_TOKEN))
 
         for i in range(count):
-            src_tensor[i][:len(src[i])] = [self.en_vocab.word2idx(word) for word in src[i]]
-            trg_tensor[i][:len(trg[i])] = [self.fr_vocab.word2idx(word) for word in trg[i]]
+            src_tensor[i][:len(src[i])] = torch.LongTensor([
+                self.en_vocab.word2idx(word) for word in src[i]
+            ])[:len(src[i])]
+
+            trg_tensor[i][:len(trg[i])] = torch.LongTensor([
+                self.fr_vocab.word2idx(word) for word in trg[i]
+            ])[:len(trg[i])]
         
-        return src_tensor, trg_tensor
+        return (
+            torch.index_select(src_tensor, 0, indexes),
+            torch.index_select(trg_tensor, 0, indexes), 
+            torch.index_select(src_lengths, 0, indexes),
+            torch.index_select(trg_lengths, 0, indexes),
+        )
 
 def save_shard_vocab() -> None:
     '''
@@ -223,12 +249,11 @@ def save_shard_vocab() -> None:
 
     def fr_fn(item):
         return item[1]
-    
 
     en_vocab = build_vocab(
         d,
         en_fn,
-        unk_cutoff=2
+        unk_cutoff=2,
     )
 
     d.reset()
@@ -236,7 +261,7 @@ def save_shard_vocab() -> None:
     fr_vocab = build_vocab(
         d,
         fr_fn,
-        unk_cutoff=2
+        unk_cutoff=2,
     )
 
     save_vocab(en_vocab, TRAIN_EN_VOCAB_FILE)
