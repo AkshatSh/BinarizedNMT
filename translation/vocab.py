@@ -99,7 +99,6 @@ def build_vocab(
         vocab.add(token)
     return vocab
 
-
 def load_vocab(
     file_name: str,
 ) -> Vocabulary:
