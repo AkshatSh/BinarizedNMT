@@ -101,6 +101,66 @@ class ShardedCSVDataset(ShardedDataset):
         self.curr_idx += 1
         return val
 
+class DualFileDataset(object):
+    '''
+    A dataloader iterator that  goes over two files, where each line
+    in the src_file corresponds to the label in the trg_file
+
+    src_file and trg_file must have the same lengths
+
+    Will randomize the dataset if shuffle is set to true
+    '''
+    def __init__(self, src_file: str, trg_file: str, shuffle: bool = False):
+        self.src_file_name = src_file
+        self.trg_file_name = trg_file
+        self.shuffle = shuffle
+        self.reset()
+    
+    def __len__(self) -> int:
+        '''
+        Will give back the length of the data objects
+        '''
+        return len(self.data)
+    
+    def reset(self) -> None:
+        '''
+        Resets the state of the iterator by re-reading from disk
+        '''
+        src_file = open(self.src_file_name)
+        trg_file = open(self.trg_file_name)
+
+        src_file_length = get_num_lines(src_file)
+        trg_file_length = get_num_lines(trg_file)
+
+        assert(src_file_length == trg_file_length)
+
+        data = []
+        for src, trg in zip(src_file, trg_file):
+            src = src.strip()
+            trg = trg.strip()
+
+            if src and trg:
+                data.append((src, trg))
+
+        self.idx = 0
+        self.data = data
+
+        if self.shuffle:
+            random.shuffle(self.data)
+
+        src_file.close()
+        trg_file.close()
+    
+    def __next__(self) -> Entry_Type:
+        if self.idx >= self.len:
+            raise StopIteration
+        
+        val = self.data[i]
+
+        self.idx += 1
+        return val
+
+
 class ShardedBatchedIterator(object):
     '''
     This is a batched iterator for the sharded dataset object.
