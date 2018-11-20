@@ -25,5 +25,5 @@ if [ ! -d "$DATA_DIR" ]; then
   bash prepare.sh
   cd ..
   python translation/shard_dataset.py
-  python translation/sharded_dataset.py
+  python translation/dataset.py
 fi
