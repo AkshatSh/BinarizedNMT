@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-import torch.nn.Functional as F
+import torch.nn.functional as F
 
 from .EncoderDecoder import EncoderModel, DecoderModel
 from ..vocab import Vocabulary
