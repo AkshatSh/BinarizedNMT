@@ -187,7 +187,10 @@ class BatchedIterator(object):
         '''
         Number of batches in the dataset
         '''
-        return len(self.data) / self.batch_size
+        return len(self.data) // self.batch_size
+    
+    def __iter__(self):
+        return self
     
     def __next__(self) -> torch.Tensor:
         count = 0

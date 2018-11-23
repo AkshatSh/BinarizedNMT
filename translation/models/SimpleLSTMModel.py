@@ -148,7 +148,7 @@ class SimpleLSTMDecoder(DecoderModel):
             final_encoder_hidden.unsqueeze(0),  # hidden
             torch.zeros_like(final_encoder_hidden).unsqueeze(0),  # cell
         )
-        output, _ = self.lstm(
+        x, _ = self.lstm(
             x,
             initial_state,
         )
