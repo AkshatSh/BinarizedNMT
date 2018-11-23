@@ -18,6 +18,7 @@ def train(
     train_loader: d.BatchedIterator,
     valid_loader: d.BatchedIterator,
     model: nn.Module,
+    epochs: int,
     learning_rate: float,
     weight_decay: float,
     log_dir: str,
@@ -25,7 +26,16 @@ def train(
     en_vocab: Vocabulary,
     fr_vocab: Vocabulary,
 ):
-    pass
+    # TODO(akshats): set up optimizer
+
+    for e in range(epochs):
+        for src, trg, src_lengths, trg_lengths in train_loader:
+            # add EOS to trg
+            # move EOS to front for prev
+            # feed everything into model
+            # compute loss
+            # call backwards
+            pass
 
 def main():
     parser = get_arg_parser()

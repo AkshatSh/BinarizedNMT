@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from .EncoderDecoder import EncoderModel, DecoderModel
+from .EncoderDecoder import EncoderModel, DecoderModel, EncoderDecoderModel
 from ..vocab import Vocabulary
 from ..constants import UNKOWN_TOKEN
 
@@ -16,6 +16,7 @@ class SimpleLSTMEncoder(EncoderModel):
     def __init__(
         self, 
         input_size: int,
+        embed_dim: int,
         hidden_size: int,
         en_vocab: Vocabulary,
         fr_vocab: Vocabulary,
@@ -96,6 +97,7 @@ class SimpleLSTMDecoder(DecoderModel):
             hidden_size=hidden_dim,
             num_layers=1,
             bidirectional=False,
+            batch_first=True,
         )
 
         # Define the output projection.
@@ -105,7 +107,7 @@ class SimpleLSTMDecoder(DecoderModel):
         self,
         prev_output_tokens: torch.Tensor,
         encoder_out: dict,
-    ):
+    ) -> tuple:
         bsz, tgt_len = prev_output_tokens.size()
 
         # Extract the final hidden state from the Encoder.
@@ -134,13 +136,40 @@ class SimpleLSTMDecoder(DecoderModel):
             torch.zeros_like(final_encoder_hidden).unsqueeze(0),  # cell
         )
         output, _ = self.lstm(
-            x.transpose(0, 1),  # convert to shape `(tgt_len, bsz, dim)`
+            x,
             initial_state,
         )
-        x = output.transpose(0, 1)  # convert to shape `(bsz, tgt_len, hidden)`
 
         # Project the outputs to the size of the vocabulary.
         x = self.output_projection(x)
 
         # Return the logits and ``None`` for the attention weights
         return x, None
+    
+
+def build_lstm_encoder_decoder_model(
+    en_vocab,
+    fr_vocab,
+    input_size,
+    encoder_embed_dim,
+    encoder_hidden_size,
+    decoder_embed_dim,
+    decoder_hidden_dim,
+):
+   encoder = SimpleLSTMEncoder(
+        input_size=input_size,
+        embed_dim=encoder_embed_dim,
+        hidden_size=encoder_hidden_dim,
+        en_vocab=en_vocab,
+        fr_vocab=fr_vocab,
+    )
+
+    decoder = SimpleLSTMDecoder(
+        en_vocab=en_vocab,
+        fr_vocab=fr_vocab,
+        encoder_hidden_dim=encoder_hidden_dim,
+        embed_dim=decoder_embed_dim,
+        hidden_dim=decoder_hidden_dim,
+    )
+
+    return EncoderDecoderModel(encoder, decoder)
