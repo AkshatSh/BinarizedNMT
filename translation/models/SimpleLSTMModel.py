@@ -147,7 +147,7 @@ class SimpleLSTMDecoder(DecoderModel):
         return x, None
     
 
-def build_lstm_encoder_decoder_model(
+def build_model(
     en_vocab,
     fr_vocab,
     input_size,
