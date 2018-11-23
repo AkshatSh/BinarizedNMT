@@ -9,10 +9,26 @@ from torchtext import data
 from torchtext import datasets
 from torch import nn
 
+from models import SimpleLSTMModel
 from train_args import get_arg_parser
 import constants
 from vocab import Vocabulary, load_vocab
 import dataset as d
+
+def build_model(parser, en_vocab, fr_vocab):
+    # TODO make switch case
+    SimpleLSTMModel.add_args(parser)
+    args = parser.parse_args()
+    return SimpleLSTMModel.build_model(
+        en_vocab=en_vocab,
+        fr_vocab=fr_vocab,
+        encoder_embed_dim=args.encoder_embed_dim,
+        encoder_hidden_dim=args.encoder_hidden_dim,
+        encoder_dropout=args.encoder_dropout,
+        decoder_embed_dim=args.decoder_embed_dim,
+        decoder_hidden_dim=args.decoder_hidden_dim,
+        decoder_dropout=args.decoder_dropout,
+    )
 
 def train(
     train_loader: d.BatchedIterator,
@@ -44,6 +60,8 @@ def main():
     print('loading vocabulary...')
     en_vocab = load_vocab(constants.TRAIN_EN_VOCAB_FILE)
     fr_vocab = load_vocab(constants.TRAIN_FR_VOCAB_FILE)
+    print(en_vocab.wordidx)
+    print(len(en_vocab))
     print('loaded vocabulary')
 
     print('loading datasets...')
@@ -69,7 +87,9 @@ def main():
         args.max_sequence_length,
     )
 
-    train()
+    model = build_model(parser, en_vocab, fr_vocab)
+
+    # train()
 
 if __name__ == "__main__":
     main()
