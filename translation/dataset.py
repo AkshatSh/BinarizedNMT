@@ -1,5 +1,6 @@
 import os
 import csv
+import sys
 import torch
 import torchtext
 import torchvision.transforms as transforms
@@ -9,7 +10,15 @@ from typing import Tuple, Callable
 
 from vocab import Vocabulary, save_vocab, build_vocab, load_vocab
 from utils import get_num_lines
-from constants import WMT14_EN_FR_TRAIN_SHARD, TRAIN_EN_VOCAB_FILE, TRAIN_FR_VOCAB_FILE, UNKNOWN_TOKEN
+from constants import (
+    WMT14_EN_FR_TRAIN_SHARD,
+    TRAIN_EN_VOCAB_FILE,
+    TRAIN_FR_VOCAB_FILE,
+    UNKNOWN_TOKEN,
+    WMT14_EN_FR_SMALL_TRAIN_SHARD,
+    SMALL_TRAIN_EN_VOCAB_FILE,
+    SMALL_TRAIN_FR_VOCAB_FILE,
+)
 
 # stores the entry src, trg for
 # translation
@@ -270,6 +279,35 @@ def save_shard_vocab() -> None:
     save_vocab(en_vocab, TRAIN_EN_VOCAB_FILE)
     save_vocab(fr_vocab, TRAIN_FR_VOCAB_FILE)
 
+def save_small_shard_vocab() -> None:
+    '''
+    Reads the small shard dataset and creates vocabulary objects
+    '''
+    d = ShardedCSVDataset(WMT14_EN_FR_SMALL_TRAIN_SHARD)
+
+    def en_fn(item):
+        return item[0]
+
+    def fr_fn(item):
+        return item[1]
+
+    en_vocab = build_vocab(
+        d,
+        en_fn,
+        unk_cutoff=2,
+    )
+
+    d.reset()
+
+    fr_vocab = build_vocab(
+        d,
+        fr_fn,
+        unk_cutoff=2,
+    )
+
+    save_vocab(en_vocab, SMALL_TRAIN_EN_VOCAB_FILE)
+    save_vocab(fr_vocab, SMALL_TRAIN_FR_VOCAB_FILE)
+
 def test() -> None:
     en_vocab = load_vocab(TRAIN_EN_VOCAB_FILE)
     fr_vocab = load_vocab(TRAIN_FR_VOCAB_FILE)
@@ -279,5 +317,10 @@ def test() -> None:
     )
 
 if __name__ == "__main__":
-    save_shard_vocab()
-    test()
+    if len(sys.argv) == 2 and sys.argv[1] == '--small':
+        save_small_shard_vocab()
+    elif len(sys.arv) == 1:
+        save_shard_vocab()
+        test()
+    else:
+        print('Ony valid option is --small')

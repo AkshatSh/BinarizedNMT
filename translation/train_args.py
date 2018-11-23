@@ -27,5 +27,6 @@ def get_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument('--cuda', action='store_true', help='should run training on the GPU')
     parser.add_argument('--multi_gpu', action='store_true', help='should use multiple gpus to train')
     parser.add_argument('--save_step', type=int, default=100000, help='after how many processed examples should the model save')
+    parser.add_argument('--small', action='store_true', help='use the small train set rather than the large one')
 
     return parser

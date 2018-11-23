@@ -123,12 +123,21 @@ def main() -> None:
     print('using device {}'.format(device))
 
     print('loading vocabulary...')
-    en_vocab = load_vocab(constants.TRAIN_EN_VOCAB_FILE)
-    fr_vocab = load_vocab(constants.TRAIN_FR_VOCAB_FILE)
+    if args.small:
+        print('using small training set')
+        en_vocab = load_vocab(constants.SMALL_TRAIN_EN_VOCAB_FILE)
+        fr_vocab = load_vocab(constants.SMALL_TRAIN_FR_VOCAB_FILE)
+    else:
+        en_vocab = load_vocab(constants.TRAIN_EN_VOCAB_FILE)
+        fr_vocab = load_vocab(constants.TRAIN_FR_VOCAB_FILE)
     print('loaded vocabulary')
 
     print('loading datasets...')
-    train_dataset = d.ShardedCSVDataset(constants.WMT14_EN_FR_TRAIN_SHARD)
+    if args.small:
+        train_dataset = d.ShardedCSVDataset(constants.WMT14_EN_FR_SMALL_TRAIN_SHARD)
+    else:
+        train_dataset = d.ShardedCSVDataset(constants.WMT14_EN_FR_TRAIN_SHARD)
+
     valid_dataset = d.DualFileDataset(
         constants.WMT14_EN_FR_VALID + ".en",
         constants.WMT14_EN_FR_VALID + ".fr",
