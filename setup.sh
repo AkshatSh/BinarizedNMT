@@ -22,8 +22,10 @@ if [ ! -d "$DATA_DIR" ]; then
   tar -xvjf wmt14.v2.en-fr.newstest2014.tar.bz2 -C data-bin
   rm wmt14.v2.en-fr.newstest2014.tar.bz2
   cd data
+  echo "Preparing data script"
   bash prepare.sh
   cd ..
+  echo "Building datasets"
   python translation/shard_dataset.py
   python translation/dataset.py
 fi
