@@ -1,10 +1,24 @@
+import sys
+sys.path.append("..")
+
 import torch
 from torch import nn
 import torch.nn.functional as F
+import argparse
 
-from .EncoderDecoder import EncoderModel, DecoderModel, EncoderDecoderModel
-from ..vocab import Vocabulary
-from ..constants import UNKOWN_TOKEN
+from models.EncoderDecoder import (
+    EncoderModel,
+    DecoderModel,
+    EncoderDecoderModel,
+    DecoderOutputType,
+)
+
+from vocab import Vocabulary
+
+from constants import (
+    UNKNOWN_TOKEN,
+    PAD_TOKEN,
+)
 
 '''
 Adopted from FAIR Seq Tutorial:
@@ -14,21 +28,22 @@ https://fairseq.readthedocs.io/en/latest/tutorial_simple_lstm.html
 
 class SimpleLSTMEncoder(EncoderModel):
     def __init__(
-        self, 
-        input_size: int,
+        self,
         embed_dim: int,
         hidden_size: int,
-        drop_out: float,
+        dropout: float,
         en_vocab: Vocabulary,
         fr_vocab: Vocabulary,
     ):
         super(SimpleLSTMEncoder, self).__init__()
         self.en_vocab = en_vocab
         self.fr_vocab = fr_vocab
+        print(self.en_vocab.word2idx(PAD_TOKEN))
+        print(len(self.en_vocab))
         self.embed_tokens = nn.Embedding(
             num_embeddings=len(self.en_vocab),
             embedding_dim=embed_dim,
-            padding_idx=self.en_vocab.word2idx(UNKOWN_TOKEN),
+            padding_idx=self.en_vocab.word2idx(PAD_TOKEN),
         )
         self.dropout = nn.Dropout(p=dropout)
 
@@ -85,7 +100,7 @@ class SimpleLSTMDecoder(DecoderModel):
         self.embed_tokens = nn.Embedding(
             num_embeddings=len(fr_vocab),
             embedding_dim=embed_dim,
-            padding_idx=fr_vocab.word2idx(UNKOWN_TOKEN),
+            padding_idx=fr_vocab.word2idx(PAD_TOKEN),
         )
         self.dropout = nn.Dropout(p=dropout)
 
@@ -101,13 +116,13 @@ class SimpleLSTMDecoder(DecoderModel):
         )
 
         # Define the output projection.
-        self.output_projection = nn.Linear(hidden_dim, len(dictionary))
+        self.output_projection = nn.Linear(hidden_dim, len(fr_vocab))
     
     def forward(
         self,
         prev_output_tokens: torch.Tensor,
         encoder_out: torch.Tensor,
-    ) -> tuple:
+    ) -> DecoderOutputType:
         bsz, tgt_len = prev_output_tokens.size()
 
         # Extract the final hidden state from the Encoder.
@@ -150,16 +165,14 @@ class SimpleLSTMDecoder(DecoderModel):
 def build_model(
     en_vocab: Vocabulary,
     fr_vocab: Vocabulary,
-    input_size: int,
     encoder_embed_dim: int,
-    encoder_hidden_size: int,
+    encoder_hidden_dim: int,
     encoder_dropout: float,
     decoder_embed_dim: int,
     decoder_hidden_dim: int,
     decoder_dropout: float,
 ):
-   encoder = SimpleLSTMEncoder(
-        input_size=input_size,
+    encoder = SimpleLSTMEncoder(
         embed_dim=encoder_embed_dim,
         hidden_size=encoder_hidden_dim,
         dropout=encoder_dropout,
@@ -177,3 +190,11 @@ def build_model(
     )
 
     return EncoderDecoderModel(encoder, decoder)
+
+def add_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument('--encoder_embed_dim', type=int, default=256, help='Embedding dimension for the encoder')
+    parser.add_argument('--encoder_hidden_dim', type=int, default=256, help='The hidden (feature size) for the encoder')
+    parser.add_argument('--encoder_dropout', type=float, default=0.2, help='the encoder dropout to apply')
+    parser.add_argument('--decoder_embed_dim', type=int, default=256, help='the decoder embedding dimension')
+    parser.add_argument('--decoder_hidden_dim', type=int, default=256, help='the hidden (feature size) for the decoder')
+    parser.add_argument('--decoder_dropout', type=float, default=0.2, help='the decoder dropout')

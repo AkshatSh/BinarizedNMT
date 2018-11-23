@@ -1,16 +1,21 @@
+import sys
+sys.path.append("..")
+
 import torch
 from torch import nn
-from torch
 import torch.nn.functional as F
 import numpy
+from typing import Tuple
 
-from ..vocab import Vocabulary
-from ..constants import UNKNOWN_TOKEN
+from vocab import Vocabulary
+from constants import UNKNOWN_TOKEN
 
 '''
 Abstract classes for Encoder Decoder models to be used as the base for
 other models
 '''
+
+DecoderOutputType = Tuple[torch.Tensor, torch.Tensor]
 
 class EncoderModel(nn.Module):
     def __init__(self):
@@ -30,8 +35,8 @@ class DecoderModel(nn.Module):
     def forward(
         self,
         prev_output_tokens: torch.Tensor,
-        encoder_out: dict,
-    ) -> tuple:
+        encoder_out: torch.Tensor,
+    ) -> DecoderOutputType:
         pass
 
 class EncoderDecoderModel(nn.Module):
@@ -63,7 +68,7 @@ class EncoderDecoderModel(nn.Module):
         self,
         predicted: torch.Tensor,
         expected: torch.Tensor,
-    ):
+    ) -> torch.Tensor:
         return F.cross_entropy(
             predicted,
             expected,
