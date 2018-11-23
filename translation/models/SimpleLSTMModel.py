@@ -18,6 +18,7 @@ class SimpleLSTMEncoder(EncoderModel):
         input_size: int,
         embed_dim: int,
         hidden_size: int,
+        drop_out: float,
         en_vocab: Vocabulary,
         fr_vocab: Vocabulary,
     ):
@@ -70,11 +71,12 @@ class SimpleLSTMDecoder(DecoderModel):
 
     def __init__(
         self,
-        en_vocab: Vocabulary,
-        fr_vocab: Vocabulary,
         encoder_hidden_dim: int,
         embed_dim: int,
         hidden_dim: int,
+        dropout: float,
+        en_vocab: Vocabulary,
+        fr_vocab: Vocabulary,
     ):
         super(SimpleLSTMDecoder, self).__init__()
 
@@ -148,28 +150,32 @@ class SimpleLSTMDecoder(DecoderModel):
     
 
 def build_model(
-    en_vocab,
-    fr_vocab,
-    input_size,
-    encoder_embed_dim,
-    encoder_hidden_size,
-    decoder_embed_dim,
-    decoder_hidden_dim,
+    en_vocab: Vocabulary,
+    fr_vocab: Vocabulary,
+    input_size: int,
+    encoder_embed_dim: int,
+    encoder_hidden_size: int,
+    encoder_dropout: float,
+    decoder_embed_dim: int,
+    decoder_hidden_dim: int,
+    decoder_dropout: float,
 ):
    encoder = SimpleLSTMEncoder(
         input_size=input_size,
         embed_dim=encoder_embed_dim,
         hidden_size=encoder_hidden_dim,
+        dropout=encoder_dropout,
         en_vocab=en_vocab,
         fr_vocab=fr_vocab,
     )
 
     decoder = SimpleLSTMDecoder(
-        en_vocab=en_vocab,
-        fr_vocab=fr_vocab,
         encoder_hidden_dim=encoder_hidden_dim,
+        dropout=decoder_dropout,
         embed_dim=decoder_embed_dim,
         hidden_dim=decoder_hidden_dim,
+        en_vocab=en_vocab,
+        fr_vocab=fr_vocab,
     )
 
     return EncoderDecoderModel(encoder, decoder)
