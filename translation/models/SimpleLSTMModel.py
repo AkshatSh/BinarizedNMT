@@ -68,6 +68,7 @@ class SimpleLSTMEncoder(EncoderModel):
         x = nn.utils.rnn.pack_padded_sequence(x, src_lengths, batch_first=True)
 
         # Get the output from the LSTM.
+        self.lstm.flatten_parameters()
         _outputs, (final_hidden, _final_cell) = self.lstm(x)
 
         # Return the Encoder's output. This can be any object and will be
@@ -148,6 +149,8 @@ class SimpleLSTMDecoder(DecoderModel):
             final_encoder_hidden.unsqueeze(0),  # hidden
             torch.zeros_like(final_encoder_hidden).unsqueeze(0),  # cell
         )
+
+        self.lstm.flatten_parameters()
         x, _ = self.lstm(
             x,
             initial_state,
