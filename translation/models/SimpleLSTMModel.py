@@ -172,7 +172,7 @@ def build_model(
     decoder_embed_dim: int,
     decoder_hidden_dim: int,
     decoder_dropout: float,
-):
+) -> nn.Module:
     encoder = SimpleLSTMEncoder(
         embed_dim=encoder_embed_dim,
         hidden_size=encoder_hidden_dim,
