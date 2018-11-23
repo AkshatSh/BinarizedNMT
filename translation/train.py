@@ -43,17 +43,21 @@ def train(
     en_vocab: Vocabulary,
     fr_vocab: Vocabulary,
     device: str,
+    multi_gpu: bool,
+    save_step: int,
+    model_name: str,
 ):
     total_loss = 0.0
     count = 0
     model = model.to(device)
-    #if device == 'cuda':
-    #    print('Using multi gpu training')
-    #    model = torch.nn.DataParallel(model, device_ids=[0, 1]).cuda()
+    if multi_gpu and device == 'cuda':
+       print('Using multi gpu training')
+       model = torch.nn.DataParallel(model, device_ids=[0, 1]).cuda()
     optim = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     for e in range(epochs):
         with tqdm(train_loader, total=len(train_loader)) as pbar:
-            for src, trg, src_lengths, trg_lengths in pbar:
+            for i, data in enumerate(pbar):
+                src, trg, src_lengths, trg_lengths = data
                 src = src.to(device)
                 trg = trg.to(device)
                 src_lengths = src_lengths.to(device)
@@ -72,12 +76,20 @@ def train(
                 trg_tensor = torch.cat([trg, eos_tensor], dim=1).to(device)
                 prev_tokens = torch.cat([eos_tensor, trg], dim=1).to(device)
                 predicted, _ = model.forward(src, src_lengths, prev_tokens)
-                loss = model.loss(predicted.view(-1, predicted.size(-1)), trg_tensor.view(-1))
-                # loss = F.cross_entropy(
-                #     predicted.view(-1, predicted.size(-1)),
-                #     trg_tensor.view(-1),
-                #     ignore_index=fr_vocab.word2idx(constants.PAD_TOKEN),
-                # )
+                
+                if not multi_gpu:
+                    loss = model.loss(predicted.view(-1, predicted.size(-1)), trg_tensor.view(-1))
+                else:
+                    # if using data parallel, loss has to be computed here
+                    # there is no longer a model loss function that we have
+                    # access to.
+                    # TODO: data parallel kills the computer, why?
+                    loss = F.cross_entropy(
+                        predicted.view(-1, predicted.size(-1)),
+                        trg_tensor.view(-1),
+                        ignore_index=fr_vocab.word2idx(constants.PAD_TOKEN),
+                    )
+
                 loss.backward()
                 optim.step()
                 total_loss += loss.item()
@@ -88,6 +100,14 @@ def train(
                     curr_loss=loss.item(),
                 )
                 pbar.refresh()
+
+                if (i + 1) % save_step == 0:
+                    print('Saving model at iteration {} for epoch {}'.format(i, e))
+                    model_file_name = "model_epoch_{}_itr_{}".format(e, i)
+                    torch.save(
+                        model.state_dict(), 
+                        os.path.join(save_dir, model_name, model_file_name)
+                    )
  
         train_loader.reset()
         valid_loader.reset()
@@ -131,6 +151,12 @@ def main():
     print('using model...')
     print(model)
 
+    if not os.path.exists(args.log_dir):
+        os.makedirs(args.log_dir)
+    
+    if not os.path.exists(args.save_dir):
+        os.makedirs(args.save_dir)
+
     train(
         train_loader=train_loader,
         valid_loader=valid_loader,
@@ -143,6 +169,9 @@ def main():
         en_vocab=en_vocab,
         fr_vocab=fr_vocab,
         device=device,
+        multi_gpu=args.multi_gpu,
+        save_step=args.save_step,
+        model_name=args.model_name,
     )
 
 if __name__ == "__main__":
