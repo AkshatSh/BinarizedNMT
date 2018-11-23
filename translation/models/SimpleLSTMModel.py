@@ -44,7 +44,7 @@ class SimpleLSTMEncoder(EncoderModel):
         self,
         src_tokens: torch.Tensor,
         src_lengths: torch.Tensor,
-    ) -> dict:
+    ) -> torch.Tensor:
         # Embed the source.
         x = self.embed_tokens(src_tokens)
 
@@ -59,10 +59,8 @@ class SimpleLSTMEncoder(EncoderModel):
 
         # Return the Encoder's output. This can be any object and will be
         # passed directly to the Decoder.
-        return {
-            # this will have shape `(bsz, hidden_dim)`
-            'final_hidden': final_hidden.squeeze(0),
-        }
+        # this will have shape `(bsz, hidden_dim)`
+        return final_hidden.squeeze(0)
 
     def initHidden(self):
         return torch.zeros(1, 1, self.hidden_size, device=device)
@@ -108,12 +106,12 @@ class SimpleLSTMDecoder(DecoderModel):
     def forward(
         self,
         prev_output_tokens: torch.Tensor,
-        encoder_out: dict,
+        encoder_out: torch.Tensor,
     ) -> tuple:
         bsz, tgt_len = prev_output_tokens.size()
 
         # Extract the final hidden state from the Encoder.
-        final_encoder_hidden = encoder_out['final_hidden']
+        final_encoder_hidden = encoder_out
 
         # Embed the target sequence, which has been shifted right by one
         # position and now starts with the end-of-sentence symbol.
