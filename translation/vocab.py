@@ -65,7 +65,7 @@ class Vocabulary(object):
         for word in remove_list:
             del self.counter[word]
         
-        self.idx = 0
+        self.index = 0
         self.wordidx = {}
         self.idxword = {}
         for word in self.counter:
