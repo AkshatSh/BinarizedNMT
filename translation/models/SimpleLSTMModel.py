@@ -38,8 +38,6 @@ class SimpleLSTMEncoder(EncoderModel):
         super(SimpleLSTMEncoder, self).__init__()
         self.en_vocab = en_vocab
         self.fr_vocab = fr_vocab
-        print(self.en_vocab.word2idx(PAD_TOKEN))
-        print(len(self.en_vocab))
         self.embed_tokens = nn.Embedding(
             num_embeddings=len(self.en_vocab),
             embedding_dim=embed_dim,
@@ -50,7 +48,7 @@ class SimpleLSTMEncoder(EncoderModel):
         # We'll use a single-layer, unidirectional LSTM for simplicity.
         self.lstm = nn.LSTM(
             input_size=embed_dim,
-            hidden_size=hidden_dim,
+            hidden_size=hidden_size,
             num_layers=1,
             bidirectional=False,
         )
@@ -189,7 +187,12 @@ def build_model(
         fr_vocab=fr_vocab,
     )
 
-    return EncoderDecoderModel(encoder, decoder)
+    return EncoderDecoderModel(
+        encoder,
+        decoder,
+        en_vocab,
+        fr_vocab,
+    )
 
 def add_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--encoder_embed_dim', type=int, default=256, help='Embedding dimension for the encoder')

@@ -60,8 +60,6 @@ def main():
     print('loading vocabulary...')
     en_vocab = load_vocab(constants.TRAIN_EN_VOCAB_FILE)
     fr_vocab = load_vocab(constants.TRAIN_FR_VOCAB_FILE)
-    print(en_vocab.wordidx)
-    print(len(en_vocab))
     print('loaded vocabulary')
 
     print('loading datasets...')
@@ -88,6 +86,9 @@ def main():
     )
 
     model = build_model(parser, en_vocab, fr_vocab)
+
+    print('using model...')
+    print(model)
 
     # train()
 

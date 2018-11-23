@@ -19,7 +19,7 @@ DecoderOutputType = Tuple[torch.Tensor, torch.Tensor]
 
 class EncoderModel(nn.Module):
     def __init__(self):
-        pass
+        super(EncoderModel, self).__init__()
     
     def forward(
         self,
@@ -30,7 +30,7 @@ class EncoderModel(nn.Module):
 
 class DecoderModel(nn.Module):
     def __init__(self):
-        pass
+        super(DecoderModel, self).__init__()
     
     def forward(
         self,
