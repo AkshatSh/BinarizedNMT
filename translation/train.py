@@ -16,7 +16,11 @@ import constants
 from vocab import Vocabulary, load_vocab
 import dataset as d
 
-def build_model(parser, en_vocab, fr_vocab):
+def build_model(
+    parser: argparse.ArgumentParser,
+    en_vocab: Vocabulary,
+    fr_vocab: Vocabulary,
+) -> nn.Module:
     # TODO make switch case
     SimpleLSTMModel.add_args(parser)
     args = parser.parse_args()
@@ -46,7 +50,7 @@ def train(
     multi_gpu: bool,
     save_step: int,
     model_name: str,
-):
+) -> None:
     total_loss = 0.0
     count = 0
     model = model.to(device)
@@ -112,7 +116,7 @@ def train(
         train_loader.reset()
         valid_loader.reset()
 
-def main():
+def main() -> None:
     parser = get_arg_parser()
     args = parser.parse_args()
     device = "cuda" if torch.cuda.is_available() and args.cuda else "cpu"
@@ -154,8 +158,8 @@ def main():
     if not os.path.exists(args.log_dir):
         os.makedirs(args.log_dir)
     
-    if not os.path.exists(args.save_dir):
-        os.makedirs(args.save_dir)
+    if not os.path.exists(os.path.join(args.save_dir, args.model_name)):
+        os.makedirs(os.path.join(args.save_dir, args.model_name))
 
     train(
         train_loader=train_loader,
