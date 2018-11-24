@@ -112,3 +112,4 @@ data/
 # ignore
 saved_models/
 tensor_logs/
+delete/
