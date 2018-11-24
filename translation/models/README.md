@@ -64,7 +64,7 @@ def forward(
             (set attention weights to None if attention is not used)
 
         '''
-        pass
+        return None
 ```
 
 ## EncoderDecoderModel
