@@ -50,6 +50,7 @@ def train(
     multi_gpu: bool,
     save_step: int,
     model_name: str,
+    optimizer: str,
 ) -> None:
     total_loss = 0.0
     count = 0
@@ -57,7 +58,15 @@ def train(
     if multi_gpu and device == 'cuda':
        print('Using multi gpu training')
        model = torch.nn.DataParallel(model, device_ids=[0, 1]).cuda()
-    optim = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    
+    if optimizer == "sgd":
+        print("using stochastic gradient descent optimizer")
+        optim = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    elif optimizer == "adam":
+        print("using adam optimizer")
+        optim = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    else:
+        raise Exception("Illegal Optimizer {}".format(optimizer))
     for e in range(epochs):
         with tqdm(train_loader, total=len(train_loader)) as pbar:
             for i, data in enumerate(pbar):
@@ -185,6 +194,7 @@ def main() -> None:
         multi_gpu=args.multi_gpu,
         save_step=args.save_step,
         model_name=args.model_name,
+        optimizer=args.optimizer,
     )
 
 if __name__ == "__main__":
