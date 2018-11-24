@@ -108,3 +108,7 @@ data-bin/
 
 # ignore data
 data/
+
+# ignore
+saved_models/
+tensor_logs/
