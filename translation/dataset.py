@@ -18,6 +18,9 @@ from constants import (
     WMT14_EN_FR_SMALL_TRAIN_SHARD,
     SMALL_TRAIN_EN_VOCAB_FILE,
     SMALL_TRAIN_FR_VOCAB_FILE,
+    END_TOKEN,
+    START_TOKEN,
+    PAD_TOKEN,
 )
 
 # stores the entry src, trg for
@@ -81,6 +84,8 @@ class ShardedCSVDataset(ShardedDataset):
         self.curr_idx = 0
         self.curr_data = []
         self.shard_idx = -1
+        if self.shuffle:
+            random.shuffle(self.sharded_files)
     
     def __next__(self) -> Entry_Type:
         if self.curr_file is None or self.curr_idx >= self.file_counts[self.curr_file_name]:
@@ -97,7 +102,7 @@ class ShardedCSVDataset(ShardedDataset):
             self.curr_file = open(file_name)
             self.curr_file_name = file_name
             self.curr_idx = 0
-            
+
             # read the file into the dataset
             reader = csv.reader(self.curr_file, delimiter=',')
             self.curr_data = [(row[0], row[1]) for row in reader]
@@ -210,10 +215,17 @@ class BatchedIterator(object):
 
         src = []
         trg = []
+        prev_tokens = []
 
         while curr is not None and count < self.batch_size:
             src.append(self.tokenize_fn(curr[0]))
-            trg.append(self.tokenize_fn(curr[1]))
+            trg.append(self.tokenize_fn(curr[1]) + [END_TOKEN])
+            '''
+            [DEBUG]:
+                [END_TOKEN] is used as the start, when [START_TOKEN] is
+                used it caused a nan loss
+            '''
+            prev_tokens.append([END_TOKEN] + self.tokenize_fn(curr[1]))
             curr = next(self.data, None)
             count += 1
         
@@ -222,17 +234,23 @@ class BatchedIterator(object):
         indexes = torch.Tensor(indexes).long()
         src_lengths = torch.LongTensor([len(item) for item in src])
         trg_lengths = torch.LongTensor([len(item) for item in trg])
+        prev_tokens_lengths = torch.LongTensor([len(item) for item in prev_tokens])
 
         # res has a series of tuples that are the src and the output
         src_tensor = torch.Tensor(
             count,
             max(src_lengths),
-        ).long().fill_(self.en_vocab.word2idx(UNKNOWN_TOKEN))
+        ).long().fill_(self.en_vocab.word2idx(PAD_TOKEN))
 
         trg_tensor = torch.Tensor(
             count,
             max(trg_lengths),
-        ).long().fill_(self.fr_vocab.word2idx(UNKNOWN_TOKEN))
+        ).long().fill_(self.fr_vocab.word2idx(PAD_TOKEN))
+
+        prev_token_tensor = torch.Tensor(
+            count,
+            max(prev_tokens_lengths),
+        ).long().fill_(self.fr_vocab.word2idx(PAD_TOKEN))
 
         for i in range(count):
             src_tensor[i][:len(src[i])] = torch.LongTensor([
@@ -242,13 +260,25 @@ class BatchedIterator(object):
             trg_tensor[i][:len(trg[i])] = torch.LongTensor([
                 self.fr_vocab.word2idx(word) for word in trg[i]
             ])[:len(trg[i])]
+
+            prev_token_tensor[i][:len(prev_tokens[i])] = torch.LongTensor([
+                self.fr_vocab.word2idx(word) for word in prev_tokens[i]
+            ])[:len(prev_tokens[i])]
         
         return (
             torch.index_select(src_tensor, 0, indexes),
             torch.index_select(trg_tensor, 0, indexes), 
             torch.index_select(src_lengths, 0, indexes),
             torch.index_select(trg_lengths, 0, indexes),
+            torch.index_select(prev_token_tensor, 0, indexes),
+            torch.index_select(prev_tokens_lengths, 0, indexes),
         )
+    
+    def reset(self):
+        '''
+        Resets the state of the iterator
+        '''
+        self.data.reset()
 
 def save_shard_vocab() -> None:
     '''

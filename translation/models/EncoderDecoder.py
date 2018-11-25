@@ -93,6 +93,7 @@ class EncoderDecoderModel(nn.Module):
         predicted: torch.Tensor,
         expected: torch.Tensor,
     ) -> torch.Tensor:
+        print(expected)
         return F.cross_entropy(
             predicted,
             expected,

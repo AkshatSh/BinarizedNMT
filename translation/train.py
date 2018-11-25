@@ -9,6 +9,7 @@ from torchtext import data
 from torchtext import datasets
 from torch import nn
 import torch.nn.functional as F
+import math
 
 from models import SimpleLSTMModel
 from train_args import get_arg_parser
@@ -52,8 +53,6 @@ def train(
     model_name: str,
     optimizer: str,
 ) -> None:
-    total_loss = 0.0
-    count = 0
     model = model.to(device)
     if multi_gpu and device == 'cuda':
        print('Using multi gpu training')
@@ -67,31 +66,33 @@ def train(
         optim = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     else:
         raise Exception("Illegal Optimizer {}".format(optimizer))
+    
+    # [DEBUG]: count number of nans
+    nan_count = 0
     for e in range(epochs):
+        total_loss = 0.0
+        count = 0
         with tqdm(train_loader, total=len(train_loader)) as pbar:
             for i, data in enumerate(pbar):
-                src, trg, src_lengths, trg_lengths = data
+                src, trg, src_lengths, trg_lengths, prev_tokens, prev_lengths = data
                 src = src.to(device)
                 trg = trg.to(device)
                 src_lengths = src_lengths.to(device)
                 trg_lengths = trg_lengths.to(device)
-                # add EOS to trg
-                # move EOS to front for prev
+                prev_tokens = prev_tokens.to(device)
+                prev_lengths = prev_lengths.to(device)
+                if (src.shape[0] <= 1):
+                    print(src.shape)
                 # feed everything into model
                 # compute loss
                 # call backwards
-                eos_tensor = torch.zeros(
-                    (trg.shape[0], 1)
-                ).fill_(
-                    fr_vocab.word2idx(constants.END_TOKEN)
-                ).long().to(device)
 
-                trg_tensor = torch.cat([trg, eos_tensor], dim=1).to(device)
-                prev_tokens = torch.cat([eos_tensor, trg], dim=1).to(device)
+                # trg_tensor = torch.cat([trg, eos_tensor], dim=1).to(device)
+                # prev_tokens = torch.cat([eos_tensor, trg], dim=1).to(device)
                 predicted, _ = model.forward(src, src_lengths, prev_tokens)
                 
                 if not multi_gpu:
-                    loss = model.loss(predicted.view(-1, predicted.size(-1)), trg_tensor.view(-1))
+                    loss = model.loss(predicted.view(-1, predicted.size(-1)), trg.view(-1))
                 else:
                     # if using data parallel, loss has to be computed here
                     # there is no longer a model loss function that we have
@@ -103,6 +104,17 @@ def train(
                         ignore_index=fr_vocab.word2idx(constants.PAD_TOKEN),
                     )
 
+                if math.isnan(loss.item()):
+                    '''
+                    Ignore nan loss for backward, and continue forward
+                    '''
+                    nan_count += 1
+                    print('found nan at {}'.format(i))
+                    torch.save(
+                        model.state_dict(), 
+                        os.path.join(save_dir, model_name, 'unk_problem.pt')
+                    )
+                    return
                 loss.backward()
                 optim.step()
                 total_loss += loss.item()
@@ -111,6 +123,7 @@ def train(
                     loss_avg=total_loss/(count),
                     epoch="{}/{}".format(e + 1, epochs),
                     curr_loss=loss.item(),
+                    nan_count=nan_count,
                 )
                 pbar.refresh()
 
@@ -121,6 +134,7 @@ def train(
                         model.state_dict(), 
                         os.path.join(save_dir, model_name, model_file_name)
                     )
+            print("Summary: Total Loss {} | Count {} | Average {}".format(total_loss, count, total_loss / count))
  
         train_loader.reset()
         valid_loader.reset()
@@ -178,6 +192,8 @@ def main() -> None:
     
     if not os.path.exists(os.path.join(args.save_dir, args.model_name)):
         os.makedirs(os.path.join(args.save_dir, args.model_name))
+
+    model.load_state_dict(torch.load('delete/model_1543183590.2138884/unk_problem.pt'))
 
     train(
         train_loader=train_loader,
