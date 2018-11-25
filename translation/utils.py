@@ -1,5 +1,9 @@
 import os
 import mmap
+from typing import List
+import torch
+
+from vocab import Vocabulary
 
 def get_num_lines(file_path: str) -> int:
     '''
@@ -11,3 +15,15 @@ def get_num_lines(file_path: str) -> int:
     while buf.readline():
         lines += 1
     return lines
+
+def convert_to_str(
+    tensor: torch.Tensor,
+    vocab: Vocabulary,
+) -> List[List[str]]:
+    output = []
+    for batch in range(tensor):
+        curr = []
+        for idx in range(tensor[batch]):
+            curr.append(vocab.idx2word(tensor[batch, idx]))
+        output.append(curr)
+    return output
