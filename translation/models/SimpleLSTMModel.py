@@ -121,6 +121,7 @@ class SimpleLSTMDecoder(DecoderModel):
         self,
         prev_output_tokens: torch.Tensor,
         encoder_out: torch.Tensor,
+        initial_state: torch.Tensor=None,
     ) -> DecoderOutputType:
         bsz, tgt_len = prev_output_tokens.size()
 
@@ -148,7 +149,7 @@ class SimpleLSTMDecoder(DecoderModel):
         initial_state = (
             final_encoder_hidden.unsqueeze(0),  # hidden
             torch.zeros_like(final_encoder_hidden).unsqueeze(0),  # cell
-        )
+        ) if not initial_state else initial_state
 
         self.lstm.flatten_parameters()
         x, _ = self.lstm(

@@ -8,7 +8,7 @@ import numpy
 from typing import Tuple
 
 from vocab import Vocabulary
-from constants import UNKNOWN_TOKEN
+from constants import PAD_TOKEN
 
 '''
 Abstract classes for Encoder Decoder models to be used as the base for
@@ -96,5 +96,23 @@ class EncoderDecoderModel(nn.Module):
         return F.cross_entropy(
             predicted,
             expected,
-            ignore_index=self.fr_vocab.word2idx(UNKNOWN_TOKEN),
+            # ignore_index=self.fr_vocab.word2idx(PAD_TOKEN),
         )
+    
+    def generate_max(
+        self,
+        src_tokens: torch.Tensor,
+        src_lengths: torch.Tensor,
+        prev_output_tokens: torch.Tensor,
+    ) -> torch.Tensor:
+        batch_size = src_tokens.shape[0]
+        output = torch.zeros((batch_size, max_seq_len))
+        encoder_out = model.encoder(src_tokens, src_lengths)
+        output[:,:1] = self.fr_vocab.word2idx(START_TOKEN)
+        intermediate_state = None
+        for i in range(max_seq_len - 1):
+            decoder_out, intermediate_state = model.decoder(output[:, i:i + 1], encoder_out, intermediate_state)
+            topv, topi = decoder_out.max(1)
+            output[:, i+1:i+2] = topi
+        
+        return output
