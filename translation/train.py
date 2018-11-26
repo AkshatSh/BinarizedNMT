@@ -81,14 +81,13 @@ def train(
                 trg_lengths = trg_lengths.to(device)
                 prev_tokens = prev_tokens.to(device)
                 prev_lengths = prev_lengths.to(device)
-                if (src.shape[0] <= 1):
-                    print(src.shape)
                 # feed everything into model
                 # compute loss
                 # call backwards
 
                 # trg_tensor = torch.cat([trg, eos_tensor], dim=1).to(device)
                 # prev_tokens = torch.cat([eos_tensor, trg], dim=1).to(device)
+                optim.zero_grad()
                 predicted, _ = model.forward(src, src_lengths, prev_tokens)
                 
                 if not multi_gpu:
@@ -135,6 +134,12 @@ def train(
                         os.path.join(save_dir, model_name, model_file_name)
                     )
             print("Summary: Total Loss {} | Count {} | Average {}".format(total_loss, count, total_loss / count))
+            model_file_name = "model_epoch_{}_final".format(e)
+            print('saving to {}'.format(os.path.join(save_dir, model_name, model_file_name)))
+            torch.save(
+                model.state_dict(), 
+                os.path.join(save_dir, model_name, model_file_name)
+            )
  
         train_loader.reset()
         valid_loader.reset()
@@ -193,7 +198,7 @@ def main() -> None:
     if not os.path.exists(os.path.join(args.save_dir, args.model_name)):
         os.makedirs(os.path.join(args.save_dir, args.model_name))
 
-    model.load_state_dict(torch.load('delete/model_1543183590.2138884/unk_problem.pt'))
+    # model.load_state_dict(torch.load('delete/model_1543183590.2138884/unk_problem.pt'))
 
     train(
         train_loader=train_loader,
