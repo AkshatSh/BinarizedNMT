@@ -59,23 +59,17 @@ class SimpleLSTMEncoder(EncoderModel):
         src_tokens: torch.Tensor,
         src_lengths: torch.Tensor,
     ) -> torch.Tensor:
-        print(src_tokens)
         # Embed the source.
         x = self.embed_tokens(src_tokens)
-
-        print(x)
         # Apply dropout.
         x = self.dropout(x)
 
         # Pack the sequence into a PackedSequence object to feed to the LSTM.
-        print(x)
-        # x = nn.utils.rnn.pack_padded_sequence(x, src_lengths, batch_first=True)
-        print(' here', x)
+        x = nn.utils.rnn.pack_padded_sequence(x, src_lengths, batch_first=True)
 
         # Get the output from the LSTM.
         self.lstm.flatten_parameters()
         _outputs, (final_hidden, _final_cell) = self.lstm(x)
-        print('params', list(self.lstm.parameters()))
 
         # Return the Encoder's output. This can be any object and will be
         # passed directly to the Decoder.
@@ -127,7 +121,7 @@ class SimpleLSTMDecoder(DecoderModel):
         self,
         prev_output_tokens: torch.Tensor,
         encoder_out: torch.Tensor,
-        initial_state: torch.Tensor=None,
+        intermediate_state: torch.Tensor=None,
     ) -> DecoderOutputType:
         bsz, tgt_len = prev_output_tokens.size()
 
@@ -155,10 +149,10 @@ class SimpleLSTMDecoder(DecoderModel):
         initial_state = (
             final_encoder_hidden.unsqueeze(0),  # hidden
             torch.zeros_like(final_encoder_hidden).unsqueeze(0),  # cell
-        ) if not initial_state else initial_state
+        ) if not intermediate_state else intermediate_state
 
         self.lstm.flatten_parameters()
-        x, _ = self.lstm(
+        x, intermediate_state = self.lstm(
             x,
             initial_state,
         )
@@ -167,7 +161,7 @@ class SimpleLSTMDecoder(DecoderModel):
         x = self.output_projection(x)
 
         # Return the logits and ``None`` for the attention weights
-        return x, None
+        return x, intermediate_state
     
 
 def build_model(
