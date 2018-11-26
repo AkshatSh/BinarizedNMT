@@ -2,6 +2,7 @@ import os
 import mmap
 from typing import List
 import torch
+import numpy as np
 
 from vocab import Vocabulary
 
@@ -17,13 +18,13 @@ def get_num_lines(file_path: str) -> int:
     return lines
 
 def convert_to_str(
-    tensor: torch.Tensor,
+    tensor: np.ndarray,
     vocab: Vocabulary,
 ) -> List[List[str]]:
     output = []
-    for batch in range(tensor):
+    for batch in range(len(tensor)):
         curr = []
-        for idx in range(tensor[batch]):
+        for idx in range(len(tensor[batch])):
             curr.append(vocab.idx2word(tensor[batch, idx]))
         output.append(curr)
     return output
