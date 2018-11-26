@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-class LocalAttention(nn.Module):
+class GlobalLuongAttention(nn.Module):
     def __init__(
         self,
         attention_dim: int,
@@ -47,8 +47,8 @@ class LocalAttention(nn.Module):
         Compute a weighted sum based on attn_conditional, and multiply input_tensor
         by the weighted sum
 
-        Encoder_outs: (batch, seq, dim)
-        Deocder_outs: (batch, 1, dim)
+        encoder_outs: (batch, seq, dim)
+        decoder_outs: (batch, 1, dim)
         '''
         score = self.score(encoder_outs, decoder_hidden)
 
