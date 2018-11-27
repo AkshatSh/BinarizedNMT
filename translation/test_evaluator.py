@@ -32,9 +32,11 @@ def build_model(
         encoder_embed_dim=args.encoder_embed_dim,
         encoder_hidden_dim=args.encoder_hidden_dim,
         encoder_dropout=args.encoder_dropout,
+        encoder_num_layers=args.encoder_num_layers,
         decoder_embed_dim=args.decoder_embed_dim,
         decoder_hidden_dim=args.decoder_hidden_dim,
         decoder_dropout=args.decoder_dropout,
+        decoder_num_layers=args.decoder_num_layers,
     )
 
 def eval_bleu(
