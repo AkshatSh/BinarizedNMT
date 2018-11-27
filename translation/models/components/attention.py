@@ -59,3 +59,77 @@ class GlobalLuongAttention(nn.Module):
         context = p_score @ encoder_outs.transpose(1,2)
         # context: (batch_size, seq, seq)
         return context
+
+class AttentionModule(nn.Module):
+    def __init__(
+        self,
+        method: str,
+        hidden_size: int,
+    ):
+        super(Attn, self).__init__()
+
+        self.method = method
+        self.hidden_size = hidden_size
+        self.device = device
+
+        if self.method == 'general':
+            self.attn = nn.Linear(self.hidden_size, self.hidden_size)
+        elif self.method == 'concat':
+            # 2 x for concat
+            self.attn = nn.Linear(self.hidden_size * 2, self.hidden_size)
+            self.v = nn.Parameter(torch.Tensor(1, hidden_size))
+    
+    def forward(
+        self,
+        hidden: torch.Tensor,
+        encoder_outputs: torch.Tensor,
+    ) -> torch.Tensor:
+        '''
+        Arguments:
+            hidden: torch.Tensor of shape (batch, dim, 1)
+            encoder_outputs: torch.Tensor of shape (batch, seq_len, dim)
+        
+        Returns:
+            torch.Tensor of next prediction (batch, max_len)
+            (encoder_outputs @ hidden) gives the right dimension
+        '''
+        # (batch, max_len)
+        attn_energies = self.score(hidden, encoder_outputs)
+
+        # (batch, max_len)
+        return F.softmax(atten_energies, dim=1)
+    
+    def score(
+        self,
+        hidden: torch.Tensor,
+        encoder_outputs: torch.Tensor,
+    ) -> torch.Tensor:
+        '''
+        Arguments:
+            hidden: torch.Tensor of shape (batch, dim, 1)
+            encoder_outputs: torch.Tensor of shape (batch, seq_len, dim)
+        
+        Returns:
+            torch.Tensor of next prediction (batch, max_len)
+            (encoder_outputs @ hidden) gives the right dimension
+        '''
+        batch_size = encoder_outputs.shape[0]
+        seq_len = encoder_outputs.shape[1]
+        dim = encoder_outputs.shape[2]
+        if self.method == 'dot':
+            return encoder_outputs @ hidden
+        elif self.method == 'general':
+            energy = self.attn(encoder_output)
+            return energy @ hidden
+        elif self.method == 'concat':
+            # hidden = (batch, seq_len, dim)
+            hidden = hidden.transpose(1,2).expand(batch_size, seq_len, dim)
+            energy = self.attn(
+                torch.cat([hidden, encoder_outputs], dim=2)
+            )
+            return energy @ hidden
+        
+        # should never be the case
+        raise Exception(
+            "[Attention]: Not supported method: {}".format(method)
+        )
