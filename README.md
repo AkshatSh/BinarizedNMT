@@ -53,7 +53,16 @@ This was defined in the attention is all you need paper [7]. If we implement the
 
 #### Seq2Seq
 
-Following the implementation of the Seq2Seq model, and Seq2Seq with attention, we want to experiment how a simple LSTM based sequence model handles our Machine Translation task as a baseline benchmark.
+Following the implementation of the Seq2Seq model we want to experiment how a simple LSTM based sequence model handles our Machine Translation task as a baseline benchmark.
+
+- [ ] Adjust Pytorch tutorial for our case
+- [ ] Tune Model for optimal performance
+- [ ] Compare runtime of inference on CPU and GPU
+- [ ] Get metric Benchmarks
+
+#### Seq2Seq With Attention
+
+Following the implementation of the Seq2Seq with attention model, we want to experiment how a simple LSTM based sequence model handles our Machine Translation task as a baseline benchmark.
 
 - [ ] Adjust Pytorch tutorial for our case
 - [ ] Tune Model for optimal performance
