@@ -61,24 +61,27 @@ def eval_bleu(
                 src_lengths = src_lengths.to(device).long()
                 trg_lengths = trg_lengths.to(device)
 
-                predicted = model.generate_max(src, src_lengths, 100, device)
+                # predicted = model.generate_max(src, src_lengths, 100, device)
+                predicted = model.generate_beam(src, src_lengths, 100, 5, device)
                 output = ' '.join(utils.convert_to_str(predicted.cpu().numpy(), fr_vocab)[0])
                 actual_out = ' '.join(utils.convert_to_str(trg.cpu().numpy(), fr_vocab)[0])
                 src = ' '.join(utils.convert_to_str(src.cpu().numpy(), en_vocab)[0])
-                print('src', src)
+                print('src\n', src)
                 print('')
-                print('out',output)
+                print('out\n',output)
                 print('')
-                print('trg', actual_out)
-                return
+                print('trg\n', actual_out)
+
+                if (i >= 2):
+                    return
 
                 count += 1
-                pbar.set_postfix(
-                    loss_avg=total_loss/(count),
-                    epoch="{}/{}".format(e + 1, epochs),
-                    curr_loss=loss.item(),
-                    nan_count=nan_count,
-                )
+                # pbar.set_postfix(
+                #     loss_avg=total_loss/(count),
+                #     epoch="{}/{}".format(e + 1, epochs),
+                #     curr_loss=loss.item(),
+                #     nan_count=nan_count,
+                # )
                 pbar.refresh()
  
         train_loader.reset()
