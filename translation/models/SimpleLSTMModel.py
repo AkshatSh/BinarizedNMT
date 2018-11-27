@@ -212,4 +212,4 @@ def add_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--decoder_hidden_dim', type=int, default=512, help='the hidden (feature size) for the decoder')
     parser.add_argument('--decoder_dropout', type=float, default=0.2, help='the decoder dropout')
     parser.add_argument('--encoder_layers', type=int, default=4, help='the number of layers in the encoder')
-    parser.add_argument('--decoder_layers', type=int default=4, help='the number of layers in the decoder')
+    parser.add_argument('--decoder_layers', type=int, default=4, help='the number of layers in the decoder')
