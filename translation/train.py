@@ -31,9 +31,11 @@ def build_model(
         encoder_embed_dim=args.encoder_embed_dim,
         encoder_hidden_dim=args.encoder_hidden_dim,
         encoder_dropout=args.encoder_dropout,
+        encoder_num_layers=args.encoder_num_layers,
         decoder_embed_dim=args.decoder_embed_dim,
         decoder_hidden_dim=args.decoder_hidden_dim,
         decoder_dropout=args.decoder_dropout,
+        decoder_num_layers=args.decoder_num_layers,
     )
 
 def train(
@@ -142,7 +144,7 @@ def train(
             )
  
         train_loader.reset()
-        valid_loader.reset()
+        # valid_loader.reset()
 
 def main() -> None:
     parser = get_arg_parser()
@@ -179,13 +181,13 @@ def main() -> None:
         args.max_sequence_length,
     )
 
-    valid_loader = d.BatchedIterator(
-        1,
-        valid_dataset,
-        en_vocab,
-        fr_vocab,
-        args.max_sequence_length,
-    )
+    # valid_loader = d.BatchedIterator(
+    #     1,
+    #     valid_dataset,
+    #     en_vocab,
+    #     fr_vocab,
+    #     args.max_sequence_length,
+    # )
 
     model = build_model(parser, en_vocab, fr_vocab)
 
@@ -202,7 +204,7 @@ def main() -> None:
 
     train(
         train_loader=train_loader,
-        valid_loader=valid_loader,
+        valid_loader=None # valid_loader,
         model=model,
         epochs=args.num_epochs,
         learning_rate=args.learning_rate,
