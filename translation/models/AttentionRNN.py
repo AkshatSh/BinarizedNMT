@@ -71,6 +71,7 @@ class AttentionDecoderRNN(DecoderModel):
         output_size: int,
         num_layers: int,
         dropout: float,
+        teacher_student_ratio: float,
     ):
         super(AttentionDecoderRNN, self).__init__()
 
@@ -78,6 +79,7 @@ class AttentionDecoderRNN(DecoderModel):
         self.output_size = output_size
         self.num_layers = num_layers
         self.dropout = dropout
+        self.teacher_student_ratio = teacher_student_ratio
 
         # layers
         self.embedding = nn.Embedding(
@@ -101,3 +103,11 @@ class AttentionDecoderRNN(DecoderModel):
             hidden_size,
             output_size,
         )
+    
+    def forward(
+        self,
+        last_hidden: torch.Tensor,
+        encoder_outputs: torch.Tensor,
+        prev_tokens: torch.Tensor,
+    ) -> torch.Tensor:
+        pass
