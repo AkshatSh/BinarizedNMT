@@ -204,7 +204,7 @@ def main() -> None:
 
     train(
         train_loader=train_loader,
-        valid_loader=None # valid_loader,
+        valid_loader=None, # valid_loader,
         model=model,
         epochs=args.num_epochs,
         learning_rate=args.learning_rate,
