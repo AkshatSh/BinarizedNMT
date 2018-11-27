@@ -168,10 +168,10 @@ def main() -> None:
     else:
         train_dataset = d.ShardedCSVDataset(constants.WMT14_EN_FR_TRAIN_SHARD)
 
-    valid_dataset = d.DualFileDataset(
-        constants.WMT14_EN_FR_VALID + ".en",
-        constants.WMT14_EN_FR_VALID + ".fr",
-    )
+    # valid_dataset = d.DualFileDataset(
+    #     constants.WMT14_EN_FR_VALID + ".en",
+    #     constants.WMT14_EN_FR_VALID + ".fr",
+    # )
 
     train_loader = d.BatchedIterator(
         args.batch_size,
