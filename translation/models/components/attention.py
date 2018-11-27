@@ -57,5 +57,5 @@ class GlobalLuongAttention(nn.Module):
 
         # context: (batch, seq, dim) * (batch, dim, sequence)
         context = p_score @ encoder_outs.transpose(1,2)
-        # context: (batch_size, dim, 1)
+        # context: (batch_size, seq, seq)
         return context

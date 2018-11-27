@@ -117,3 +117,41 @@ class EncoderDecoderModel(nn.Module):
             output[:, i+1:i+2] = topi
         
         return output
+    
+    def generate_beam(
+        self,
+        src_tokens: torch.Tensor,
+        src_lengths: torch.Tensor,
+        max_seq_len: int,
+        beam_width: int,
+        device: str = 'cpu',
+    ) -> torch.Tensor:
+        encoder_out = self.encoder(src_tokens, src_lengths)
+
+        # (score, index of outputs, probabilities, hidden_state)
+        initial_tensor = torch.zeros((1, len(self.fr_vocab))).to(device)
+        initial_tensor[0][self.fr_vocab.word2idx(END_TOKEN)] = 1
+        beam = [(0.0, torch.Tensor([]).to(device).long(), initial_tensor, None)]
+        for i in range(max_seq_len - 1):
+            new_beam = []
+            for ii, curr_beam in enumerate(beam):
+                score, outputs, probs, intermediate_state = curr_beam
+                samples = torch.topk(probs[0], k=beam_width)[1]
+                for sample in samples:
+                    sample = sample.long()
+                    sample_score = score + torch.log(probs[0][sample])
+                    sample_tensor = torch.Tensor([sample]).to(device).unsqueeze(0).long()
+
+                    decoder_out, intermediate_state = self.decoder(sample_tensor, encoder_out, intermediate_state)
+                    # print(decoder_out.shape)
+                    decoder_out = F.softmax(decoder_out, dim=2)
+                    new_entry = (
+                        sample_score, torch.cat([outputs, sample_tensor[0]], dim=0), decoder_out[0], intermediate_state
+                    )
+                    new_beam.append(new_entry)
+                new_beam.sort(reverse=True, key=lambda val: val[0])
+                beam = new_beam[:beam_width]
+            # print('finished sequence {}'.format(i))
+        # print(beam[0][1].unsqueeze(0).shape)
+        return beam[0][1].unsqueeze(0)
+
