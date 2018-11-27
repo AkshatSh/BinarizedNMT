@@ -4,6 +4,7 @@ sys.path.append("..")
 import torch
 from torch import nn
 import torch.nn.functional as F
+import random
 
 from models.EncoderDecoder import (
     EncoderModel,
@@ -110,4 +111,55 @@ class AttentionDecoderRNN(DecoderModel):
         encoder_outputs: torch.Tensor,
         prev_tokens: torch.Tensor,
     ) -> torch.Tensor:
-        pass
+        batch_size, seq_len = prev_tokens.shape
+        if random.random() < self.teacher_student_ratio:
+            return self.teacher_forward(
+                self,
+                last_hidden,
+                encoder_outputs,
+                prev_tokens,
+            )
+        else:
+            return self.student_forward(
+                self,
+                last_hidden,
+                encoder_outputs,
+                seq_len,
+            )
+
+    def teacher_forward(
+        self,
+        last_hidden: torch.Tensor,
+        encoder_outputs: torch.Tensor,
+        prev_tokens: torch.Tensor,
+    ) -> torch.Tensor:
+        batch_size, seq_len = prev_tokens.shape
+
+        # embedded_prev_tokens: (batch, seq_len, trg_vocab)
+        embedded_prev_tokens = self.embedding(prev_tokens)
+        embedded_prev_tokens = self.dropout(embedded_prev_tokens)
+
+        decoder_outputs = []
+        for i in range(seq_len):
+            attn_weights = self.attn(last_hidden[-1], encoder_outputs)
+
+            # encoder_outputs: (batch, seq_len, dim)
+            # attn_weights = (batch, seq_len)
+            context = attn_weights.bmm(encoder_outputs)
+
+            # TODO: encoder_outputs.transpose(1,2) @ attn_weights.unsqueeze(2)
+            lstm_input = torch.cat((embedded_prev_tokens[:, i, :], context), dim=2)
+            output, last_hidden = self.lstm(lstm_input, last_hidden)
+            decoder_outputs.append(output)
+        decoder_outputs = torch.cat(decoder_outputs, dim=1)
+        out = self.out(decoder_outputs)
+        out = F.softmax(out)
+        return out, last_hidden            
+    
+    def student_forward(
+        self,
+        last_hidden: torch.Tensor,
+        encoder_outputs: torch.Tensor,
+        seq_len: int,
+    ) -> torch.Tensor:
+        batch_size, seq_len = prev_tokens.shape
