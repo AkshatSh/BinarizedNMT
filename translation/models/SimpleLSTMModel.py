@@ -156,7 +156,7 @@ class SimpleLSTMDecoder(DecoderModel):
         self.lstm.flatten_parameters()
         x, intermediate_state = self.lstm(
             x,
-            None # initial_state,
+            initial_state,
         )
 
         # Project the outputs to the size of the vocabulary.
