@@ -32,11 +32,11 @@ def build_model(
         encoder_embed_dim=args.encoder_embed_dim,
         encoder_hidden_dim=args.encoder_hidden_dim,
         encoder_dropout=args.encoder_dropout,
-        encoder_num_layers=args.encoder_num_layers,
+        encoder_num_layers=args.encoder_layers,
         decoder_embed_dim=args.decoder_embed_dim,
         decoder_hidden_dim=args.decoder_hidden_dim,
         decoder_dropout=args.decoder_dropout,
-        decoder_num_layers=args.decoder_num_layers,
+        decoder_num_layers=args.decoder_layers,
     )
 
 def eval_bleu(
@@ -57,14 +57,16 @@ def eval_bleu(
         count = 0
         with tqdm(train_loader, total=len(train_loader)) as pbar:
             for i, data in enumerate(pbar):
+                if i == 0:
+                    continue
                 src, trg, src_lengths, trg_lengths, prev_tokens, prev_lengths = data
                 src = src.to(device).long()
                 trg = trg.to(device).long()
                 src_lengths = src_lengths.to(device).long()
                 trg_lengths = trg_lengths.to(device)
 
-                # predicted = model.generate_max(src, src_lengths, 100, device)
-                predicted = model.generate_beam(src, src_lengths, 100, 5, device)
+                predicted = model.generate_max(src, src_lengths, 100, device)
+                # predicted = model.generate_beam(src, src_lengths, 100, 5, device)
                 output = ' '.join(utils.convert_to_str(predicted.cpu().numpy(), fr_vocab)[0])
                 actual_out = ' '.join(utils.convert_to_str(trg.cpu().numpy(), fr_vocab)[0])
                 src = ' '.join(utils.convert_to_str(src.cpu().numpy(), en_vocab)[0])

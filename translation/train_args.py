@@ -29,5 +29,6 @@ def get_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument('--save_step', type=int, default=100000, help='after how many processed examples should the model save')
     parser.add_argument('--small', action='store_true', help='use the small train set rather than the large one')
     parser.add_argument('--optimizer', type=str, default='adam', help='the optimizer to use')
+    parser.add_argument('--model_type', type=str, default='AttentionRNN', help='the type of model to use')
 
     return parser

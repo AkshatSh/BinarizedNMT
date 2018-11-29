@@ -11,7 +11,7 @@ from torch import nn
 import torch.nn.functional as F
 import math
 
-from models import SimpleLSTMModel
+from models import SimpleLSTMModel, AttentionRNN
 from train_args import get_arg_parser
 import constants
 from vocab import Vocabulary, load_vocab
@@ -23,20 +23,42 @@ def build_model(
     fr_vocab: Vocabulary,
 ) -> nn.Module:
     # TODO make switch case
-    SimpleLSTMModel.add_args(parser)
     args = parser.parse_args()
-    return SimpleLSTMModel.build_model(
-        en_vocab=en_vocab,
-        fr_vocab=fr_vocab,
-        encoder_embed_dim=args.encoder_embed_dim,
-        encoder_hidden_dim=args.encoder_hidden_dim,
-        encoder_dropout=args.encoder_dropout,
-        encoder_num_layers=args.encoder_layers,
-        decoder_embed_dim=args.decoder_embed_dim,
-        decoder_hidden_dim=args.decoder_hidden_dim,
-        decoder_dropout=args.decoder_dropout,
-        decoder_num_layers=args.decoder_layers,
-    )
+    if args.model_type == 'SimpleLSTM':
+        SimpleLSTMModel.add_args(parser)
+        args = parser.parse_args()
+        return SimpleLSTMModel.build_model(
+            en_vocab=en_vocab,
+            fr_vocab=fr_vocab,
+            encoder_embed_dim=args.encoder_embed_dim,
+            encoder_hidden_dim=args.encoder_hidden_dim,
+            encoder_dropout=args.encoder_dropout,
+            encoder_num_layers=args.encoder_layers,
+            decoder_embed_dim=args.decoder_embed_dim,
+            decoder_hidden_dim=args.decoder_hidden_dim,
+            decoder_dropout=args.decoder_dropout,
+            decoder_num_layers=args.decoder_layers,
+        )
+    elif args.model_type == 'AttentionRNN':
+        AttentionRNN.add_args(parser)
+        args = parser.parse_args()
+        return AttentionRNN.build_model(
+            en_vocab=en_vocab,
+            fr_vocab=fr_vocab,
+            encoder_embed_dim=args.encoder_embed_dim,
+            encoder_hidden_dim=args.encoder_hidden_dim,
+            encoder_dropout=args.encoder_dropout,
+            encoder_num_layers=args.encoder_layers,
+            decoder_embed_dim=args.decoder_embed_dim,
+            decoder_hidden_dim=args.decoder_hidden_dim,
+            decoder_dropout=args.decoder_dropout,
+            decoder_num_layers=args.decoder_layers,
+            teacher_student_ratio=args.teacher_student_ratio,
+        )
+    else:
+        raise Exception(
+            "Unknown Model Type: {}".format(args.model_type)
+        )
 
 def train(
     train_loader: d.BatchedIterator,
