@@ -87,7 +87,7 @@ def train(
         optim = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     elif optimizer == "adam":
         print("using adam optimizer")
-        optim = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+        optim = torch.optim.Adam(model.parameters(), lr=learning_rate,) #  weight_decay=weight_decay)
     else:
         raise Exception("Illegal Optimizer {}".format(optimizer))
 
@@ -104,11 +104,10 @@ def train(
                 # call backwards
                 optim.zero_grad()
                 predicted, _ = model.forward(src, src_lengths, trg)
-                
                 if not multi_gpu:
                     loss = F.cross_entropy(
-                        predicted[1:].view(-1, len(fr_vocab)),
-                        trg[1:].contiguous().view(-1),
+                        predicted[:, :-1].contiguous().view(-1, len(fr_vocab)),
+                        trg[:, 1:].contiguous().view(-1),
                         ignore_index=fr_vocab.stoi['<pad>'],
                     )
                 else:
@@ -140,7 +139,7 @@ def train(
                 pbar.set_postfix(
                     loss_avg=total_loss/(count),
                     epoch="{}/{}".format(e + 1, epochs),
-                    curr_loss=loss.item(),
+                    curr_loss=loss.item(),q
                     nan_count=nan_count,
                 )
                 pbar.refresh()
@@ -169,14 +168,21 @@ def main() -> None:
 
     print('loading datasets...')
     src = data.Field(include_lengths=True,
-               init_token='<sos>', eos_token='<eos>', batch_first=True)
+               init_token='<sos>', eos_token='<eos>', batch_first=True, fix_length=200)
     trg = data.Field(include_lengths=True,
                init_token='<sos>', eos_token='<eos>', batch_first=True)
-    mt_train = datasets.TranslationDataset(
-        path=constants.WMT14_EN_FR_SMALL_TRAIN,
-        exts=('.en', '.fr'),
-        fields=(src, trg)
-    )
+    
+    if not args.small:
+        mt_train = datasets.TranslationDataset(
+            path=constants.WMT14_EN_FR_SMALL_TRAIN,
+            exts=('.en', '.fr'),
+            fields=(src, trg)
+        )
+    else:
+        mt_train, _, _ = datasets.Multi30k.splits(
+            exts=('.en', '.de'),
+            fields=(src, trg),
+        )
 
     print('loading vocabulary...')
     src.build_vocab(mt_train, min_freq=2, max_size=80000)
