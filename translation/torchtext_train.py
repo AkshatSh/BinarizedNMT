@@ -87,7 +87,7 @@ def train(
         optim = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     elif optimizer == "adam":
         print("using adam optimizer")
-        optim = torch.optim.Adam(model.parameters(), lr=learning_rate,) #  weight_decay=weight_decay)
+        optim = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     else:
         raise Exception("Illegal Optimizer {}".format(optimizer))
 
@@ -139,7 +139,7 @@ def train(
                 pbar.set_postfix(
                     loss_avg=total_loss/(count),
                     epoch="{}/{}".format(e + 1, epochs),
-                    curr_loss=loss.item(),q
+                    curr_loss=loss.item(),
                     nan_count=nan_count,
                 )
                 pbar.refresh()
