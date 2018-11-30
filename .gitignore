@@ -114,3 +114,4 @@ saved_models/
 tensor_logs/
 delete/
 .data/
+large_1000/
