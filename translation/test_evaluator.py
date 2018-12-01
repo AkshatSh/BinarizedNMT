@@ -27,8 +27,8 @@ def build_model(
     SimpleLSTMModel.add_args(parser)
     args = parser.parse_args()
     return SimpleLSTMModel.build_model(
-        en_vocab=en_vocab,
-        fr_vocab=fr_vocab,
+        src_vocab=en_vocab,
+        trg_vocab=fr_vocab,
         encoder_embed_dim=args.encoder_embed_dim,
         encoder_hidden_dim=args.encoder_hidden_dim,
         encoder_dropout=args.encoder_dropout,
