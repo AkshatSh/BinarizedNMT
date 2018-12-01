@@ -33,16 +33,16 @@ class SimpleLSTMEncoder(EncoderModel):
         num_layers: int,
         hidden_size: int,
         dropout: float,
-        en_vocab: Vocabulary,
-        fr_vocab: Vocabulary,
+        src_vocab: Vocabulary,
+        trg_vocab: Vocabulary,
     ):
         super(SimpleLSTMEncoder, self).__init__()
-        self.en_vocab = en_vocab
-        self.fr_vocab = fr_vocab
+        self.src_vocab = src_vocab
+        self.trg_vocab = trg_vocab
         self.embed_tokens = nn.Embedding(
-            num_embeddings=len(self.en_vocab),
+            num_embeddings=len(self.src_vocab),
             embedding_dim=embed_dim,
-            padding_idx=self.en_vocab.word2idx(PAD_TOKEN),
+            padding_idx=self.src_vocab.word2idx(PAD_TOKEN),
         )
         self.dropout = nn.Dropout(p=dropout)
 
@@ -89,17 +89,17 @@ class SimpleLSTMDecoder(DecoderModel):
         num_layers: int,
         hidden_dim: int,
         dropout: float,
-        en_vocab: Vocabulary,
-        fr_vocab: Vocabulary,
+        src_vocab: Vocabulary,
+        trg_vocab: Vocabulary,
     ):
         super(SimpleLSTMDecoder, self).__init__()
 
-        self.en_vocab = en_vocab
-        self.fr_vocab = fr_vocab
+        self.en_vocab = src_vocab
+        self.fr_vocab = trg_vocab
 
         # Our decoder will embed the inputs before feeding them to the LSTM.
         self.embed_tokens = nn.Embedding(
-            num_embeddings=len(fr_vocab),
+            num_embeddings=len(trg_vocab),
             embedding_dim=embed_dim,
             padding_idx=fr_vocab.word2idx(PAD_TOKEN),
         )
@@ -117,7 +117,7 @@ class SimpleLSTMDecoder(DecoderModel):
         )
 
         # Define the output projection.
-        self.output_projection = nn.Linear(hidden_dim, len(fr_vocab))
+        self.output_projection = nn.Linear(hidden_dim, len(trg_vocab))
     
     def forward(
         self,
@@ -167,8 +167,8 @@ class SimpleLSTMDecoder(DecoderModel):
     
 
 def build_model(
-    en_vocab: Vocabulary,
-    fr_vocab: Vocabulary,
+    src_vocab: Vocabulary,
+    trg_vocab: Vocabulary,
     encoder_embed_dim: int,
     encoder_hidden_dim: int,
     encoder_dropout: float,
@@ -183,8 +183,8 @@ def build_model(
         num_layers=encoder_num_layers,
         hidden_size=encoder_hidden_dim,
         dropout=encoder_dropout,
-        en_vocab=en_vocab,
-        fr_vocab=fr_vocab,
+        src_vocab=src_vocab,
+        trg_vocab=trg_vocab,
     )
 
     decoder = SimpleLSTMDecoder(
@@ -193,15 +193,15 @@ def build_model(
         embed_dim=decoder_embed_dim,
         num_layers=decoder_num_layers,
         hidden_dim=decoder_hidden_dim,
-        en_vocab=en_vocab,
-        fr_vocab=fr_vocab,
+        src_vocab=src_vocab,
+        trg_vocab=trg_vocab,
     )
 
     return EncoderDecoderModel(
         encoder,
         decoder,
-        en_vocab,
-        fr_vocab,
+        src_vocab,
+        trg_vocab,
     )
 
 def add_args(parser: argparse.ArgumentParser) -> None:
