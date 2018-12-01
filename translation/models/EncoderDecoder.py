@@ -68,15 +68,15 @@ class EncoderDecoderModel(nn.Module):
         self, 
         encoder: EncoderModel,
         decoder: DecoderModel,
-        en_vocab: Vocabulary,
-        fr_vocab: Vocabulary,
+        src_vocab: Vocabulary,
+        trg_vocab: Vocabulary,
     ):
         super().__init__()
 
         self.encoder = encoder
         self.decoder = decoder
-        self.en_vocab = en_vocab
-        self.fr_vocab = fr_vocab
+        self.src_vocab = src_vocab
+        self.trg_vocab = trg_vocab
 
     def forward(
         self,
@@ -96,7 +96,7 @@ class EncoderDecoderModel(nn.Module):
         return F.cross_entropy(
             predicted,
             expected,
-            # ignore_index=self.fr_vocab.word2idx(PAD_TOKEN),
+            # ignore_index=self.trg_vocab.word2idx(PAD_TOKEN),
         )
     
     def generate_max(
@@ -109,7 +109,7 @@ class EncoderDecoderModel(nn.Module):
         batch_size = src_tokens.shape[0]
         output = torch.zeros((batch_size, max_seq_len)).long().to(device)
         encoder_out = self.encoder(src_tokens, src_lengths)
-        output[:,:1] = self.fr_vocab.word2idx(END_TOKEN)
+        output[:,:1] = self.trg_vocab.word2idx(END_TOKEN)
         intermediate_state = None
         for i in range(max_seq_len - 1):
             decoder_out, intermediate_state = self.decoder(output[:, i:i + 1], encoder_out, intermediate_state)
@@ -129,8 +129,8 @@ class EncoderDecoderModel(nn.Module):
         encoder_out = self.encoder(src_tokens, src_lengths)
 
         # (score, index of outputs, probabilities, hidden_state)
-        initial_tensor = torch.zeros((1, len(self.fr_vocab))).to(device)
-        initial_tensor[0][self.fr_vocab.word2idx(END_TOKEN)] = 1
+        initial_tensor = torch.zeros((1, len(self.trg_vocab))).to(device)
+        initial_tensor[0][self.trg_vocab.word2idx(END_TOKEN)] = 1
         beam = [(0.0, torch.Tensor([]).to(device).long(), initial_tensor, None)]
         for i in range(max_seq_len - 1):
             new_beam = []
