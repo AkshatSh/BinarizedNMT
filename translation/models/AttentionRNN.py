@@ -168,8 +168,8 @@ class AttentionDecoderRNN(DecoderModel):
         batch_size, seq_len = prev_tokens.shape
 
 def build_model(
-    en_vocab: Vocabulary,
-    fr_vocab: Vocabulary,
+    src_vocab: Vocabulary,
+    trg_vocab: Vocabulary,
     encoder_embed_dim: int,
     encoder_hidden_dim: int,
     encoder_dropout: float,
@@ -181,14 +181,14 @@ def build_model(
     teacher_student_ratio: float,
 ) -> nn.Module:
     encoder = EncoderRNN(
-        src_vocab=en_vocab,
+        src_vocab=src_vocab,
         hidden_size=encoder_hidden_dim,
         num_layers=encoder_num_layers,
         dropout=encoder_dropout,
     )
 
     decoder = AttentionDecoderRNN(
-        trg_vocab=fr_vocab,
+        trg_vocab=trg_vocab,
         hidden_size=decoder_hidden_dim,
         num_layers=decoder_num_layers,
         dropout=decoder_dropout,
@@ -198,8 +198,8 @@ def build_model(
     return EncoderDecoderModel(
         encoder,
         decoder,
-        en_vocab,
-        fr_vocab,
+        src_vocab,
+        trg_vocab,
     )
 
 def add_args(parser: argparse.ArgumentParser) -> None:
