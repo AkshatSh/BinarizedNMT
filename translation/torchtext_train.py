@@ -16,6 +16,7 @@ from train_args import get_arg_parser
 import constants
 from vocab import Vocabulary, load_vocab
 import dataset as d
+import utils
 
 def build_model(
     parser: argparse.ArgumentParser,
@@ -167,10 +168,20 @@ def main() -> None:
 
 
     print('loading datasets...')
-    src = data.Field(include_lengths=True,
-               init_token='<sos>', eos_token='<eos>', batch_first=True, fix_length=200)
-    trg = data.Field(include_lengths=True,
-               init_token='<sos>', eos_token='<eos>', batch_first=True)
+    src = data.Field(
+        include_lengths=True,
+        init_token='<sos>',
+        eos_token='<eos>',
+        batch_first=True,
+        fix_length=args.torchtext_src_fix_length,
+    )
+
+    trg = data.Field(
+        include_lengths=True,
+        init_token='<sos>',
+        eos_token='<eos>',
+        batch_first=True,
+    )
     
     if not args.small:
         mt_train = datasets.TranslationDataset(
@@ -178,16 +189,28 @@ def main() -> None:
             exts=('.en', '.fr'),
             fields=(src, trg)
         )
+        src_vocab, trg_vocab = utils.load_torchtext_wmt_small_vocab()
+        src.vocab = src_vocab
+
+        trg.vocab = trg_vocab
     else:
         mt_train, _, _ = datasets.Multi30k.splits(
             exts=('.en', '.de'),
             fields=(src, trg),
         )
 
-    print('loading vocabulary...')
-    src.build_vocab(mt_train, min_freq=2, max_size=80000)
-    trg.build_vocab(mt_train, max_size=10000)
-    print('loaded vocabulary')
+        print('loading vocabulary...')
+        src.build_vocab(
+            mt_train,
+            min_freq=args.torchtext_unk,
+            max_size=args.torchtext_src_max_vocab,
+        )
+
+        trg.build_vocab(
+            mt_train,
+            max_size=args.torchtext_trg_max_vocab,
+        )
+        print('loaded vocabulary')
     # mt_dev shares the fields, so it shares their vocab objects
 
     train_loader = data.BucketIterator(
