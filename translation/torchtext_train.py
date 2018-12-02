@@ -210,7 +210,7 @@ def main() -> None:
             mt_train,
             max_size=args.torchtext_trg_max_vocab,
         )
-        print('loaded vocabulary')
+    print('loaded vocabulary')
     # mt_dev shares the fields, so it shares their vocab objects
 
     train_loader = data.BucketIterator(
