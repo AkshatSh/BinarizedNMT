@@ -28,3 +28,15 @@ def convert_to_str(
             curr.append(vocab.idx2word(tensor[batch, idx]))
         output.append(curr)
     return output
+
+def torchtext_convert_to_str(
+    tensor: np.ndarray,
+    vocab: Vocabulary,
+) -> List[List[str]]:
+    output = []
+    for batch in range(len(tensor)):
+        curr = []
+        for idx in range(len(tensor[batch])):
+            curr.append(vocab.itos[tensor[batch, idx]])
+        output.append(curr)
+    return output

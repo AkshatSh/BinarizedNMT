@@ -97,8 +97,8 @@ def train(
         count = 0
         with tqdm(train_loader, total=len(train_loader)) as pbar:
             for i, data in enumerate(pbar):
-                items, _ = data
-                (src, src_lengths), (trg, trg_lengths) = items
+                src, src_lengths = data.src
+                trg, trg_lengths = data.trg
                 # feed everything into model
                 # compute loss
                 # call backwards
@@ -186,7 +186,7 @@ def main() -> None:
 
     print('loading vocabulary...')
     src.build_vocab(mt_train, min_freq=2, max_size=80000)
-    trg.build_vocab(mt_train, max_size=40000)
+    trg.build_vocab(mt_train, max_size=10000)
     print('loaded vocabulary')
     # mt_dev shares the fields, so it shares their vocab objects
 
@@ -195,7 +195,7 @@ def main() -> None:
         batch_size=args.batch_size,
         sort_key=lambda x: len(x.src), # data.interleave_keys(len(x.src), len(x.trg)),
         sort_within_batch=True,
-        device=device
+        device=device,
     )
 
     model = build_model(parser, src.vocab, trg.vocab)
