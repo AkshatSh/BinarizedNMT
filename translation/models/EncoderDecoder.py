@@ -109,10 +109,10 @@ class EncoderDecoderModel(nn.Module):
         batch_size = src_tokens.shape[0]
         output = torch.zeros((batch_size, max_seq_len)).long().to(device)
         encoder_out = self.encoder(src_tokens, src_lengths)
-        output[:,:1] = self.trg_vocab.word2idx(END_TOKEN)
+        output[:,:1] = self.trg_vocab.stoi['<sos>']
         intermediate_state = None
         for i in range(max_seq_len - 1):
-            decoder_out, intermediate_state = self.decoder(output[:, i:i + 1], encoder_out, intermediate_state)
+            decoder_out, intermediate_state = self.decoder.forward_eval(output[:, i:i + 1], encoder_out, intermediate_state)
             topv, topi = decoder_out.max(2)
             output[:, i+1:i+2] = topi
         

@@ -84,6 +84,7 @@ class AttentionDecoderRNN(DecoderModel):
         self.num_layers = num_layers
         self.dropout = dropout
         self.teacher_student_ratio = teacher_student_ratio
+        self.trg_vocab = trg_vocab
 
         # layers
         self.embedding = nn.Embedding(
@@ -127,6 +128,19 @@ class AttentionDecoderRNN(DecoderModel):
                 encoder_outputs,
                 seq_len,
             )
+    
+    def forward_eval(
+        self,
+        prev_tokens: torch.Tensor,
+        encoder_out: tuple,
+        intermediate: torch.Tensor,
+    ) -> torch.Tensor:
+        encoder_outputs, last_hidden = encoder_out
+        return self.teacher_forward(
+            last_hidden if intermediate is None else intermediate,
+            encoder_outputs,
+            prev_tokens,
+        )
 
     def teacher_forward(
         self,
@@ -161,11 +175,39 @@ class AttentionDecoderRNN(DecoderModel):
     
     def student_forward(
         self,
-        last_hidden: torch.Tensor,
+        final_hidden: torch.Tensor,
         encoder_outputs: torch.Tensor,
         seq_len: int,
     ) -> torch.Tensor:
-        batch_size, seq_len = prev_tokens.shape
+        batch_size = encoder_outputs.shape[0]
+        final_hidden = final_hidden[:self.num_layers]
+        device = final_hidden.device
+
+        prev_output = torch.zeros((batch_size, 1)).long().to(device)
+        prev_output[:, 0] = self.trg_vocab.stoi['<sos>']
+        final_encoder_hidden = final_hidden
+
+        decoder_outputs = []
+        last_hidden = final_hidden
+        
+        for i in range(seq_len):
+            attn_weights = self.attn(last_hidden[-1], encoder_outputs)
+
+            # encoder_outputs: (batch, seq_len, dim)
+            # attn_weights = (batch, seq_len)
+            context = attn_weights.transpose(1,2).bmm(encoder_outputs)
+
+            embedded_prev_tokens = self.embedding(prev_output)
+            embedded_prev_tokens = self.dropout(embedded_prev_tokens)
+
+            lstm_input = torch.cat((embedded_prev_tokens, context), dim=2)
+            output, last_hidden = self.lstm(lstm_input, last_hidden)
+            output = self.out(output)
+            decoder_outputs.append(output)
+            topi = output.max(2)[1]
+            prev_output = topi
+        decoder_outputs = torch.cat(decoder_outputs, dim=1)
+        return decoder_outputs, last_hidden  
 
 def build_model(
     src_vocab: Vocabulary,
@@ -211,4 +253,4 @@ def add_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--decoder_dropout', type=float, default=0.2, help='the decoder dropout')
     parser.add_argument('--encoder_layers', type=int, default=2, help='the number of layers in the encoder')
     parser.add_argument('--decoder_layers', type=int, default=2, help='the number of layers in the decoder')
-    parser.add_argument('--teacher_student_ratio', type=float, default=1.0, help='the ratio of teacher to student to use')
+    parser.add_argument('--teacher_student_ratio', type=float, default=0.5, help='the ratio of teacher to student to use')
