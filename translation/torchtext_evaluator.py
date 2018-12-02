@@ -12,10 +12,11 @@ import torch.nn.functional as F
 import math
 
 from models import SimpleLSTMModel, AttentionRNN
-from train_args import get_arg_parser
+from eval_args import get_arg_parser
 import constants
 from vocab import Vocabulary, load_vocab
 import dataset as d
+import utils
 
 def build_model(
     parser: argparse.ArgumentParser,
@@ -74,39 +75,46 @@ def eval_bleu(
        print('Using multi gpu training')
        model = torch.nn.DataParallel(model, device_ids=[0, 1]).cuda()
     
+    bleus = []
     for e in range(1):
         count = 0
         with tqdm(train_loader, total=len(train_loader)) as pbar:
             for i, data in enumerate(pbar):
                 if i == 0:
                     continue
-                src, trg, src_lengths, trg_lengths, prev_tokens, prev_lengths = data
-                src = src.to(device).long()
-                trg = trg.to(device).long()
-                src_lengths = src_lengths.to(device).long()
-                trg_lengths = trg_lengths.to(device)
+                src, src_lengths = data.src
+                trg, trg_lengths = data.trg
 
                 predicted = model.generate_max(src, src_lengths, 100, device)
                 # predicted = model.generate_beam(src, src_lengths, 100, 5, device)
-                output = ' '.join(utils.convert_to_str(predicted.cpu().numpy(), fr_vocab)[0])
-                actual_out = ' '.join(utils.convert_to_str(trg.cpu().numpy(), fr_vocab)[0])
-                src = ' '.join(utils.convert_to_str(src.cpu().numpy(), en_vocab)[0])
-                print('src\n', src)
-                print('')
-                print('out\n',output)
-                print('')
-                print('trg\n', actual_out)
+                pred_arr = utils.torchtext_convert_to_str(predicted.cpu().numpy(), fr_vocab)[0]
+                out_arr = utils.torchtext_convert_to_str(trg.cpu().numpy(), fr_vocab)[0]
+                pred_slim_arr = utils.get_raw_sentence(pred_arr)
+                out_slim_arr = utils.get_raw_sentence(out_arr)
+                curr_bleu = utils.compute_bleu(pred_slim_arr, out_slim_arr)
+                # print("BLEU: {}".format(
+                #     curr_bleu
+                # ))
+                bleus.append(curr_bleu)
+                # output = ' '.join(pred_slim_arr)
+                # actual_out = ' '.join(out_slim_arr)
+                # src = ' '.join(utils.torchtext_convert_to_str(src.cpu().numpy(), en_vocab)[0])
+                # print('src\n', src)
+                # print('')
+                # print('out\n',output)
+                # print('')
+                # print('trg\n', actual_out)
 
-                if (i >= 2):
-                    return
+                # if (i >= 7):
+                #     print(bleus)
+                #     print(sum(bleus) / len(bleus))
+                #     return
 
                 count += 1
-                # pbar.set_postfix(
-                #     loss_avg=total_loss/(count),
-                #     epoch="{}/{}".format(e + 1, epochs),
-                #     curr_loss=loss.item(),
-                #     nan_count=nan_count,
-                # )
+                pbar.set_postfix(
+                    curr_bleu=curr_bleu,
+                    avg_bleu=(sum(bleus) / len(bleus) * 100)
+                )
                 pbar.refresh()
  
         train_loader.reset()
@@ -126,8 +134,14 @@ def main() -> None:
                init_token='<sos>', eos_token='<eos>', batch_first=True)
     
     if not args.small:
+        # mt_train = datasets.TranslationDataset(
+        #     path=constants.WMT14_EN_FR_SMALL_TRAIN,
+        #     exts=('.en', '.fr'),
+        #     fields=(src, trg)
+        # )
+
         mt_train = datasets.TranslationDataset(
-            path=constants.WMT14_EN_FR_SMALL_TRAIN,
+            path=constants.WMT14_EN_FR_VALID,
             exts=('.en', '.fr'),
             fields=(src, trg)
         )
@@ -138,20 +152,25 @@ def main() -> None:
         )
 
     print('loading vocabulary...')
-    src.build_vocab(mt_train, min_freq=2, max_size=80000)
-    trg.build_vocab(mt_train, max_size=40000)
+    src_vocab, trg_vocab = utils.load_torchtext_wmt_small_vocab()
+    src.vocab = src_vocab
+
+    trg.vocab = trg_vocab
     print('loaded vocabulary')
     # mt_dev shares the fields, so it shares their vocab objects
 
     train_loader = data.BucketIterator(
         dataset=mt_train,
-        batch_size=args.batch_size,
+        batch_size=1,
         sort_key=lambda x: len(x.src), # data.interleave_keys(len(x.src), len(x.trg)),
         sort_within_batch=True,
         device=device
     )
 
+    print('model type: {}'.format(args.model_type))
     model = build_model(parser, src.vocab, trg.vocab)
+    model.load_state_dict(torch.load(args.load_path))
+    model = model.eval()
 
     print('using model...')
     print(model)
@@ -166,8 +185,8 @@ def main() -> None:
         train_loader=train_loader,
         valid_loader=None, # valid_loader,
         model=model,
-        en_vocab=en_vocab,
-        fr_vocab=fr_vocab,
+        en_vocab=src.vocab,
+        fr_vocab=trg.vocab,
         device=device,
         multi_gpu=args.multi_gpu,
     )
