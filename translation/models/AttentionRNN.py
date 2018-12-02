@@ -204,7 +204,7 @@ class AttentionDecoderRNN(DecoderModel):
             output, last_hidden = self.lstm(lstm_input, last_hidden)
             output = self.out(output)
             decoder_outputs.append(output)
-            topi = output.max(2)[1]
+            topi = output.data.max(2)[1]
             prev_output = topi
         decoder_outputs = torch.cat(decoder_outputs, dim=1)
         return decoder_outputs, last_hidden  
@@ -253,4 +253,4 @@ def add_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--decoder_dropout', type=float, default=0.2, help='the decoder dropout')
     parser.add_argument('--encoder_layers', type=int, default=2, help='the number of layers in the encoder')
     parser.add_argument('--decoder_layers', type=int, default=2, help='the number of layers in the decoder')
-    parser.add_argument('--teacher_student_ratio', type=float, default=0.5, help='the ratio of teacher to student to use')
+    parser.add_argument('--teacher_student_ratio', type=float, default=1.0, help='the ratio of teacher to student to use')
