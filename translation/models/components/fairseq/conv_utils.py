@@ -16,7 +16,8 @@ def PositionalEmbedding(
     embedding_dim: int,
     padding_idx: int,
 ) -> nn.Module:
-    m = LearnedPositionalEmbedding(num_embeddings, embedding_dim, padding_idx, left_pad)
+    # left_pad = False, since everything is right padded here
+    m = LearnedPositionalEmbedding(num_embeddings, embedding_dim, padding_idx, False)
     nn.init.normal_(m.weight, 0, 0.1)
     nn.init.constant_(m.weight[padding_idx], 0)
     return m
