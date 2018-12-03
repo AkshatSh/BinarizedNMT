@@ -103,6 +103,7 @@ def train(
     optimizer: str,
     batch_size: int,
     log_step: int,
+    should_save: bool,
 ) -> None:
     logger = Logger(log_dir)
     model = model.to(device)
@@ -149,7 +150,7 @@ def train(
                         ignore_index=fr_vocab.word2idx(constants.PAD_TOKEN),
                     )
 
-                if math.isnan(loss.item()):
+                if args.should_save and math.isnan(loss.item()):
                     '''
                     Ignore nan loss for backward, and continue forward
                     '''
@@ -172,7 +173,7 @@ def train(
                 )
                 pbar.refresh()
 
-                if (i + 1) % log_step == 0:
+                if args.should_save and (i + 1) % log_step == 0:
                     # log every log step (excluding 0 for noise)
                     logger.scalar_summary(
                         "train loss_avg", 
@@ -194,12 +195,13 @@ def train(
                         os.path.join(save_dir, model_name, model_file_name)
                     )
             print("Summary: Total Loss {} | Count {} | Average {}".format(total_loss, count, total_loss / count))
-            model_file_name = "model_epoch_{}_final".format(e)
-            print('saving to {}'.format(os.path.join(save_dir, model_name, model_file_name)))
-            torch.save(
-                model.state_dict(), 
-                os.path.join(save_dir, model_name, model_file_name)
-            )
+            if args.should_save:
+                model_file_name = "model_epoch_{}_final".format(e)
+                print('saving to {}'.format(os.path.join(save_dir, model_name, model_file_name)))
+                torch.save(
+                    model.state_dict(), 
+                    os.path.join(save_dir, model_name, model_file_name)
+                )
 
 def main() -> None:
     parser = get_arg_parser()
@@ -271,10 +273,10 @@ def main() -> None:
         args.log_dir,
         args.model_name,
     )
-    if not os.path.exists(log_dir):
+    if args.should_save and  not os.path.exists(log_dir):
         os.makedirs(log_dir)
     
-    if not os.path.exists(os.path.join(args.save_dir, args.model_name)):
+    if args.should_save and not os.path.exists(os.path.join(args.save_dir, args.model_name)):
         os.makedirs(os.path.join(args.save_dir, args.model_name))
 
     train(
@@ -295,6 +297,7 @@ def main() -> None:
         optimizer=args.optimizer,
         batch_size=args.batch_size,
         log_step=args.log_step,
+        should_save=args.should_save,
     )
 
 if __name__ == "__main__":
