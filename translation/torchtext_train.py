@@ -16,6 +16,7 @@ from train_args import get_arg_parser
 import constants
 from vocab import Vocabulary, load_vocab
 import dataset as d
+import utils
 
 def build_model(
     parser: argparse.ArgumentParser,
@@ -90,32 +91,26 @@ def train(
         optim = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     else:
         raise Exception("Illegal Optimizer {}".format(optimizer))
-    
-    # [DEBUG]: count number of nans
+
     nan_count = 0
     for e in range(epochs):
         total_loss = 0.0
         count = 0
         with tqdm(train_loader, total=len(train_loader)) as pbar:
             for i, data in enumerate(pbar):
-                src, trg, src_lengths, trg_lengths, prev_tokens, prev_lengths = data
-                src = src.to(device)
-                trg = trg.to(device)
-                src_lengths = src_lengths.to(device)
-                trg_lengths = trg_lengths.to(device)
-                prev_tokens = prev_tokens.to(device)
-                prev_lengths = prev_lengths.to(device)
+                src, src_lengths = data.src
+                trg, trg_lengths = data.trg
                 # feed everything into model
                 # compute loss
                 # call backwards
-
-                # trg_tensor = torch.cat([trg, eos_tensor], dim=1).to(device)
-                # prev_tokens = torch.cat([eos_tensor, trg], dim=1).to(device)
                 optim.zero_grad()
-                predicted, _ = model.forward(src, src_lengths, prev_tokens)
-                
+                predicted, _ = model.forward(src, src_lengths, trg)
                 if not multi_gpu:
-                    loss = model.loss(predicted.view(-1, predicted.size(-1)), trg.view(-1))
+                    loss = F.cross_entropy(
+                        predicted[:, :-1].contiguous().view(-1, len(fr_vocab)),
+                        trg[:, 1:].contiguous().view(-1),
+                        ignore_index=fr_vocab.stoi['<pad>'],
+                    )
                 else:
                     # if using data parallel, loss has to be computed here
                     # there is no longer a model loss function that we have
@@ -164,9 +159,6 @@ def train(
                 model.state_dict(), 
                 os.path.join(save_dir, model_name, model_file_name)
             )
- 
-        train_loader.reset()
-        # valid_loader.reset()
 
 def main() -> None:
     parser = get_arg_parser()
@@ -174,44 +166,62 @@ def main() -> None:
     device = "cuda" if torch.cuda.is_available() and args.cuda else "cpu"
     print('using device {}'.format(device))
 
-    print('loading vocabulary...')
-    if args.small:
-        print('using small training set')
-        en_vocab = load_vocab(constants.SMALL_TRAIN_EN_VOCAB_FILE)
-        fr_vocab = load_vocab(constants.SMALL_TRAIN_FR_VOCAB_FILE)
-    else:
-        en_vocab = load_vocab(constants.TRAIN_EN_VOCAB_FILE)
-        fr_vocab = load_vocab(constants.TRAIN_FR_VOCAB_FILE)
-    print('loaded vocabulary')
 
     print('loading datasets...')
-    if args.small:
-        train_dataset = d.ShardedCSVDataset(constants.WMT14_EN_FR_SMALL_TRAIN_SHARD)
-    else:
-        train_dataset = d.ShardedCSVDataset(constants.WMT14_EN_FR_TRAIN_SHARD)
-
-    # valid_dataset = d.DualFileDataset(
-    #     constants.WMT14_EN_FR_VALID + ".en",
-    #     constants.WMT14_EN_FR_VALID + ".fr",
-    # )
-
-    train_loader = d.BatchedIterator(
-        args.batch_size,
-        train_dataset,
-        en_vocab,
-        fr_vocab,
-        args.max_sequence_length,
+    src = data.Field(
+        include_lengths=True,
+        init_token='<sos>',
+        eos_token='<eos>',
+        batch_first=True,
+        fix_length=args.torchtext_src_fix_length,
     )
 
-    # valid_loader = d.BatchedIterator(
-    #     1,
-    #     valid_dataset,
-    #     en_vocab,
-    #     fr_vocab,
-    #     args.max_sequence_length,
-    # )
+    trg = data.Field(
+        include_lengths=True,
+        init_token='<sos>',
+        eos_token='<eos>',
+        batch_first=True,
+    )
+    
+    if not args.small:
+        mt_train = datasets.TranslationDataset(
+            path=constants.WMT14_EN_FR_SMALL_TRAIN,
+            exts=('.en', '.fr'),
+            fields=(src, trg)
+        )
+        src_vocab, trg_vocab = utils.load_torchtext_wmt_small_vocab()
+        src.vocab = src_vocab
 
-    model = build_model(parser, en_vocab, fr_vocab)
+        trg.vocab = trg_vocab
+    else:
+        mt_train, _, _ = datasets.Multi30k.splits(
+            exts=('.en', '.de'),
+            fields=(src, trg),
+        )
+
+        print('loading vocabulary...')
+        src.build_vocab(
+            mt_train,
+            min_freq=args.torchtext_unk,
+            max_size=args.torchtext_src_max_vocab,
+        )
+
+        trg.build_vocab(
+            mt_train,
+            max_size=args.torchtext_trg_max_vocab,
+        )
+    print('loaded vocabulary')
+    # mt_dev shares the fields, so it shares their vocab objects
+
+    train_loader = data.BucketIterator(
+        dataset=mt_train,
+        batch_size=args.batch_size,
+        sort_key=lambda x: len(x.src), # data.interleave_keys(len(x.src), len(x.trg)),
+        sort_within_batch=True,
+        device=device,
+    )
+
+    model = build_model(parser, src.vocab, trg.vocab)
 
     print('using model...')
     print(model)
@@ -222,8 +232,6 @@ def main() -> None:
     if not os.path.exists(os.path.join(args.save_dir, args.model_name)):
         os.makedirs(os.path.join(args.save_dir, args.model_name))
 
-    # model.load_state_dict(torch.load('delete/model_1543183590.2138884/unk_problem.pt'))
-
     train(
         train_loader=train_loader,
         valid_loader=None, # valid_loader,
@@ -233,8 +241,8 @@ def main() -> None:
         weight_decay=args.weight_decay,
         log_dir=args.log_dir,
         save_dir=args.save_dir,
-        en_vocab=en_vocab,
-        fr_vocab=fr_vocab,
+        en_vocab=src.vocab,
+        fr_vocab=trg.vocab,
         device=device,
         multi_gpu=args.multi_gpu,
         save_step=args.save_step,

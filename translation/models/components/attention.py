@@ -66,11 +66,11 @@ class AttentionModule(nn.Module):
         method: str,
         hidden_size: int,
     ):
-        super(Attn, self).__init__()
+        super(AttentionModule, self).__init__()
 
         self.method = method
         self.hidden_size = hidden_size
-        self.device = device
+        # self.device = device
 
         if self.method == 'general':
             self.attn = nn.Linear(self.hidden_size, self.hidden_size)
@@ -97,7 +97,7 @@ class AttentionModule(nn.Module):
         attn_energies = self.score(hidden, encoder_outputs)
 
         # (batch, max_len)
-        return F.softmax(atten_energies, dim=1)
+        return F.softmax(attn_energies, dim=1)
     
     def score(
         self,
@@ -113,21 +113,29 @@ class AttentionModule(nn.Module):
             torch.Tensor of next prediction (batch, max_len)
             (encoder_outputs @ hidden) gives the right dimension
         '''
+        # print('enc_out', encoder_outputs.shape)
         batch_size = encoder_outputs.shape[0]
         seq_len = encoder_outputs.shape[1]
         dim = encoder_outputs.shape[2]
         if self.method == 'dot':
             return encoder_outputs @ hidden
         elif self.method == 'general':
-            energy = self.attn(encoder_output)
-            return energy @ hidden
+            energy = self.attn(encoder_outputs)
+            hidden_unsqz = hidden.unsqueeze(1)
+            return energy @ hidden_unsqz.transpose(1,2)
         elif self.method == 'concat':
-            # hidden = (batch, seq_len, dim)
-            hidden = hidden.transpose(1,2).expand(batch_size, seq_len, dim)
+            # hidden = (batch, dim)
+            # print('hidden', hidden.shape)
+            # print('unsqz', hidden.unsqueeze(1).shape)
+            hidden_unsqz = hidden.unsqueeze(1)
+            hidden = hidden_unsqz.expand(batch_size, seq_len, dim)
+            # print('new_hidden', hidden.shape)
             energy = self.attn(
                 torch.cat([hidden, encoder_outputs], dim=2)
             )
-            return energy @ hidden
+            # print(energy.shape)
+            # print(hidden_unsqz.transpose(1,2).shape)
+            return energy @ hidden_unsqz.transpose(1,2)
         
         # should never be the case
         raise Exception(
