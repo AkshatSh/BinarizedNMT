@@ -11,7 +11,12 @@ from torch import nn
 import torch.nn.functional as F
 import math
 
-from models import SimpleLSTMModel, AttentionRNN
+from models import (
+    AttentionRNN,
+    ConvSeq2Seq,
+    SimpleLSTMModel,
+)
+
 from train_args import get_arg_parser
 import constants
 from vocab import Vocabulary, load_vocab
@@ -56,6 +61,24 @@ def build_model(
             decoder_dropout=args.decoder_dropout,
             decoder_num_layers=args.decoder_layers,
             teacher_student_ratio=args.teacher_student_ratio,
+        )
+    elif args.model_type == 'ConvSeq2Seq':
+        ConvSeq2Seq.add_args(parser)
+        args = parser.parse_args()
+        return ConvSeq2Seq.build_model(
+            src_vocab=src_vocab,
+            trg_vocab=trg_vocab,
+            max_positions=args.max_positions,
+            encoder_embed_dim=args.encoder_embed_dim,
+            encoder_conv_spec=args.encoder_conv_spec,
+            encoder_dropout=args.encoder_dropout,
+            decoder_embed_dim=args.decoder_embed_dim,
+            decoder_out_embed_dim=args.decoder_out_embed_dim,
+            decoder_conv_spec=args.decoder_conv_spec,
+            decoder_dropout=args.decoder_dropout,
+            decoder_attention=args.decoder_attention,
+            share_embed=args.share_embed,
+            decoder_positional_embed=args.decoder_positional_embed,
         )
     else:
         raise Exception(
