@@ -4,29 +4,31 @@ import sys
 import subprocess
 
 """
-Logs CPU, GPU, and memory usage about a process, very basic implementation, need to put this in a wrapper later
+Logs CPU, GPU, and memory usage about a process, very basic implementation
 """
 
 GPU_PER = "Gpu"
 GPU_MEM = "Used GPU Memory"
 
 def format_bytes(bytes):
-    if abs(bytes) < 1000:
+    if abs(bytes) < (1024):
         return str(bytes)+"B"
-    elif abs(bytes) < 1e6:
-        return str(round(bytes/1e3,2)) + "kB"
-    elif abs(bytes) < 1e9:
-        return str(round(bytes / 1e6, 2)) + "MB"
+    elif abs(bytes) < (2 << 20):
+        return str(round(bytes/1024,2)) + "kiB"
+    elif abs(bytes) < (2 << 30):
+        return str(round(bytes / (2 << 20), 2)) + "MiB"
     else:
-        return str(round(bytes / 1e9, 2)) + "GB"
+        return str(round(bytes / (2<<20), 2)) + "GiB"
 
 def get_cpumem(pid):
-    process = subprocess.Popen(['ps', 'aux'], stdout=subprocess.PIPE)
+    process = subprocess.Popen(['ps', 'ux'], stdout=subprocess.PIPE)
     out, err = process.communicate()
     out = out.decode("utf-8")
-    d = [i for i in out.split('\n')
-        if len(i) > 0 and i.split()[1] == str(pid)]
-    return (float(d[0].split()[2]), float(d[0].split()[3]), format_bytes(int(d[0].split()[5]))) if d else None
+    d = [i for i in out.split('\n') if len(i) > 0 and i.split()[1] == str(pid)]
+    if d:
+        return (float(d[0].split()[2]), float(d[0].split()[3]), format_bytes(int(d[0].split()[5])))
+    else:
+        return None
 
 def get_gpumem(pid):
     process = subprocess.Popen(['nvidia-smi', '-q'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -40,26 +42,23 @@ def get_gpumem(pid):
             out_dict[key] = val
         except:
             pass
-
     x = out_dict[GPU_PER].replace(' ', '')
     x = float(x.replace('%', ''))
     y = out_dict[GPU_MEM].replace(' ', '')  
     return (x, y) 
 
-if __name__ == '__main__':
-    if not len(sys.argv) == 2 or not all(i in string.digits for i in sys.argv[1]):
-        print("usage: {} PID".format(sys.argv[0]))
-        exit(2)
+def log(pid, duration=1800, file=None):
     print("%CPU\t%MEM\tMEM\t%GPU\tGPU")
     try:
         while True:
-            x,y,z = get_cpumem(sys.argv[1])
-            i,j = get_gpumem(sys.argv[1]) 
-            if not x:
+            res = get_cpumem(pid)
+            if res is None:
                 print("no such process")
-                exit(1)
-            print("{}\t{}\t{}\t{}\t{}".format(x,y,z,i,j))
-            time.sleep(10)
+                exit(1)   
+            cpu_per,mem_per,mem = res       
+            gpu_per,gpu = get_gpumem(pid) 
+            print("{}\t{}\t{}\t{}\t{}".format(cpu_per,mem_per,mem,gpu_per,gpu))
+            time.sleep(duration)
     except KeyboardInterrupt:
-        print
+        print()
         exit(0)
