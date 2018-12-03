@@ -479,3 +479,5 @@ def add_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--decoder_out_embed_dim', type=int, default=512, help='the output embedding dimension')
     parser.add_argument('--decoder_dropout', type=float, default=0.1, help='dropout for the decoder')
     parser.add_argument('--decoder_attention', type=bool, default=True, help='whether to use attention for the decoder')
+    parser.add_argument('--share_embed', type=bool, default=False, help='whether to share the embedding layer')
+    parser.add_argument('--decoder_positional_embed', type=bool, default=True, help='whether to use the positional embeddings')
