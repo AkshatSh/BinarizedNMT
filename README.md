@@ -157,6 +157,12 @@ And if you want to deactivate the virtual environment
 
 # decativate the virtual env
 $ deactivate
+
+# if using python 3.7.x, no official tensorflow distro is available so use this for mac:
+$ pip install https://storage.googleapis.com/tensorflow/mac/cpu/tensorflow-0.12.0-py3-none-any.whl
+
+# use this for linux
+$ pip install https://github.com/adrianodennanni/tensorflow-1.12.0-cp37-cp37m-linux_x86_64/blob/master/tensorflow-1.12.0-cp37-cp37m-linux_x86_64.whl?raw=true
 ```
 
 ## References
