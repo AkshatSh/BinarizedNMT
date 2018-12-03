@@ -363,7 +363,7 @@ class ConvDecoder(DecoderModel):
         num_attn = len(self.attentions)
         residuals = [x]
 
-        for i (proj, conv, attn, res_layer) in \
+        for i, (proj, conv, attn, res_layer) in \
             enumerate(
                 zip(self.projections, self.convolutions, self.attentions, self.residuals)
             ):

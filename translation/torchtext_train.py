@@ -66,8 +66,8 @@ def build_model(
         ConvSeq2Seq.add_args(parser)
         args = parser.parse_args()
         return ConvSeq2Seq.build_model(
-            src_vocab=src_vocab,
-            trg_vocab=trg_vocab,
+            src_vocab=en_vocab,
+            trg_vocab=fr_vocab,
             max_positions=args.max_positions,
             encoder_embed_dim=args.encoder_embed_dim,
             encoder_conv_spec=args.encoder_conv_spec,
@@ -150,7 +150,7 @@ def train(
                         ignore_index=fr_vocab.word2idx(constants.PAD_TOKEN),
                     )
 
-                if args.should_save and math.isnan(loss.item()):
+                if should_save and math.isnan(loss.item()):
                     '''
                     Ignore nan loss for backward, and continue forward
                     '''
@@ -173,7 +173,7 @@ def train(
                 )
                 pbar.refresh()
 
-                if args.should_save and (i + 1) % log_step == 0:
+                if should_save and (i + 1) % log_step == 0:
                     # log every log step (excluding 0 for noise)
                     logger.scalar_summary(
                         "train loss_avg", 
@@ -195,7 +195,7 @@ def train(
                         os.path.join(save_dir, model_name, model_file_name)
                     )
             print("Summary: Total Loss {} | Count {} | Average {}".format(total_loss, count, total_loss / count))
-            if args.should_save:
+            if should_save:
                 model_file_name = "model_epoch_{}_final".format(e)
                 print('saving to {}'.format(os.path.join(save_dir, model_name, model_file_name)))
                 torch.save(
