@@ -226,3 +226,256 @@ class ConvEncoder(EncoderModel):
             encoder_padding_mask, # padding mask
         )
 
+class ConvDecoder(DecoderModel):
+    def __init__(
+        self,
+        trg_dictionary: Vocab,
+        embed_dim: int,
+        out_embed_dim: int,
+        max_positions: int,
+        convolution_spec: ConvSpecType,
+        attention: bool,
+        dropout: float,
+        share_embed: bool,
+        positional_embedding: bool,
+    ):
+        super(ConvDecoder, self).__init__()
+        self.trg_dictionary = trg_dictionary
+        self.embed_dim = embed_dim
+        self.out_embed_dim = out_embed_dim
+        self.max_positions = max_positions
+        self.convolution_spec = convolution_spec
+
+        if isinstance(attention, bool):
+            self.attention = [attention] * len(convolution_spec)
+        elif isinstance(attention, list):
+            self.attention = attention
+        else:
+            raise Exception("Unexpected type for attention: {}".format(attention))
+
+        self.dropout = dropout
+        self.share_embed = share_embed
+        self.positional_embedding = positional_embedding
+
+        num_embeddings = len(trg_dictionary)
+        padding_idx = trg_dictionary.stoi['<pad>']
+        self.embed_tokens = Embedding(
+            num_embeddings,
+            embed_dim,
+            padding_idx,
+        )
+
+        self.embed_positions = PositionalEmbedding(
+            max_positions,
+            embed_dim,
+            padding_idx,
+        ) if positional_embeddings else None
+
+
+        self.fc1 = Linear(embed_dim, in_channels, dropout=dropout)
+        self.projections = nn.ModuleList()
+        self.convolutions = nn.ModuleList()
+        self.attentions = nn.ModuleList()
+        self.residuals = []
+
+        in_channels = self.convolution_spec[0][0]
+        layer_in_channels = [in_channels]
+        for i, (out_channels, kernel_width, residual) in enumerate(self.convolution_spec):
+            if residual == 0:
+                residual_dim = out_channels
+            else:
+                # connect to the dim of the -residual channel
+                resitudal_dim = layer_in_channels[-residual]
+            
+            # create a projection to convert the last layer of channels
+            # to the current one
+            self.projections.append(
+                Linear(residual_dim, out_channels)
+                if residual_dim != out_channels else None
+            )
+
+            if kernel_width % 2 == 1:
+                padding = kernel_width // 2
+            else:
+                padding = 0
+            
+            # create a convolution for the layer
+            self.convolutions.append(
+                ConvTBC(
+                    in_channels,
+                    out_channels * 2,
+                    kernel_size,
+                    dropout=dropout,
+                    padding=padding,
+                )
+            )
+
+            # keep track of residual connections for
+            # each layer
+            self.residuals.append(residual)
+
+            # add Attention
+            self.attentions.append(
+                AttentionLayer(
+                    out_channels,
+                    embed_dim,
+                ) if attention[i] else None
+            )
+
+            in_channels = out_channels
+            layer_in_channels.append(out_channels)
+
+        self.fc2 = Linear(
+            out_channels,
+            out_embed_dim,
+        )
+
+        self.fc3 = Linear(
+            out_embed_dim,
+            num_embeddings,
+        )
+    
+    def forward(
+        self,
+        prev_tokens: torch.Tensor,
+        encoder_out: tuple,
+    ) -> torch.Tensor:
+        (encoder_a, encoder_b), encoder_padding_mask = encoder_out
+
+        pos_embed = 0
+        if self.embed_positions is not None:
+            pos_embed = self.embed_positions(
+                prev_tokens,
+            )
+        
+        x = self.embed_tokens(prev_tokens)
+
+        # add the positional embedding
+        x += pos_embed
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        target_embedding = x
+
+        # start convolutional layers
+        x = self.fc1(x)
+
+        # TODO: is transpose necessary?
+        avg_attn_scores = None
+        num_attn = len(self.attentions)
+        residuals = [x]
+
+        for i (proj, conv, attn, res_layer) in \
+            enumerate(
+                zip(self.projections, self.convolutions, self.attentions, self.residuals)
+            ):
+
+            residual = None
+            if res_layer > 0:
+                # residual exists
+                residual = residuals[-res_layer]
+                residual = proj(residual) if proj is not None else residual
+
+            x = F.dropout(x, p=self.dropout, training=self.training)
+            x = conv(x)
+            x = F.glu(x, dim=2)
+
+            # attention
+            if attention is not None:
+                # TODO: transpose?
+                # x = x.transpose(0, 1)
+
+                x, attn_score = attn(x, target_embedding, (encoder_a, encoder_b), encoder_padding_mask)
+                if not self.training and self.need_attn:
+                    attn_scores = attn_scores / num_attn_layers
+                    if avg_attn_scores is None:
+                        avg_attn_scores = attn_scores
+                    else:
+                        avg_attn_scores.add_(attn_scores)
+
+                # TODO transpose?
+                # x = x.transpose(0, 1)
+            
+            # residual connection
+            if residual is not None:
+                x = (x + residual) * math.sqrt(0.5)
+            residuals.append(x)
+        
+        # TODO transpose?
+        x = self.fc2(x)
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        x = self.fc3(x)
+
+        return x
+
+def build_model(
+    src_vocab: Vocabulary,
+    trg_vocab: Vocabulary,
+    max_positions: int,
+    encoder_embed_dim: int,
+    encoder_conv_spec: ConvSpecType,
+    encoder_dropout: float,
+    decoder_embed_dim: int,
+    decoder_out_embed_dim: int,
+    decoder_conv_spec: ConvSpecType,
+    decoder_dropout: float,
+    decoder_attention: bool,
+    share_embed: bool,
+    decoder_positional_embed: bool,
+) -> nn.Module:
+    encoder = ConvEncoder(
+        src_vocab=src_vocab,
+        embedding_dim=encoder_embed_dim,
+        max_positions=max_positions,
+        convolution_spec=encoder_conv_spec,
+        dropout=encoder_dropout,
+    )
+
+    decoder = AttentionDecoderRNN(
+        trg_dictionary=trg_vocab,
+        embed_dim=decoder_embed_dim,
+        out_embed_dim=decoder_out_embed_dim,
+        max_positions=max_positions,
+        convolution_spec=decoder_conv_spec,
+        attention=decoder_attention,
+        dropout=decoder_dropout,
+        share_embed=share_embed,
+        positional_embedding=decoder_positional_embed,
+    )
+
+    return EncoderDecoderModel(
+        encoder,
+        decoder,
+        src_vocab,
+        trg_vocab,
+    )
+
+def get_default_conv_spec() -> ConvSpecType:
+    convs = '[(512, 3)] * 9'  # first 9 layers have 512 units
+    convs += ' + [(1024, 3)] * 4'  # next 4 layers have 1024 units
+    convs += ' + [(2048, 1)] * 2'  # final 2 layers use 1x1 convolutions
+    return eval(convs)
+
+def add_args(parser: argparse.ArgumentParser) -> None:
+    # model hyper parameters
+    parser.add_argument('--max_positions', type=int, default=1024, help='the maximum positions for hte positional embedding')
+
+    # encoder hyper parameters
+    parser.add_argument('--encoder_embed_dim', type=int, default=768, help='the embedding dimension for the encoder')
+    parser.add_argument(
+        '--encoder_conv_spec', 
+        type=ConvSpecType,
+        default=get_default_conv_spec(),
+        help='convolutional spec for the encoder',
+    )
+    parser.add_argument('--encoder_dropout', type=float, default=0.1, help='dropout for the encoder')
+
+    # decoder hyper parameters
+    parser.add_argument('--decoder_embed_dim', type=int, default=768, help='the decoder embedding dimension')
+    parser.add_argument(
+        '--decoder_conv_spec', 
+        type=ConvSpecType,
+        default=get_default_conv_spec(),
+        help='convolutional spec for the encoder',
+    )
+    parser.add_argument('--decoder_out_embed_dim', type=int, default=512, help='the output embedding dimension')
+    parser.add_argument('--decoder_dropout', type=float, default=0.1, help='dropout for the decoder')
+    parser.add_argument('--decoder_attention', type=bool, default=True, help='whether to use attention for the decoder')
