@@ -19,3 +19,7 @@ TRAIN_EN_VOCAB_FILE = os.path.join(WMT14_EN_FR_DIR, 'train_en_vocab.pkl')
 TRAIN_FR_VOCAB_FILE = os.path.join(WMT14_EN_FR_DIR, 'train_fr_vocab.pkl')
 SMALL_TRAIN_EN_VOCAB_FILE = os.path.join(WMT14_EN_FR_DIR, 'small_train_en_vocab.pkl')
 SMALL_TRAIN_FR_VOCAB_FILE = os.path.join(WMT14_EN_FR_DIR, 'small_train_fr_vocab.pkl')
+
+TORCH_TEXT_DATA_SET_FILE = os.path.join(WMT14_EN_FR_DIR, 'tt_small_train_dataset.pkl')
+TORCH_TEXT_SMALL_EN_VOCAB_FILE = os.path.join(WMT14_EN_FR_DIR, 'tt_small_train_en_vocab.pkl')
+TORCH_TEXT_SMALL_FR_VOCAB_FILE = os.path.join(WMT14_EN_FR_DIR, 'tt_small_train_fr_vocab.pkl')
