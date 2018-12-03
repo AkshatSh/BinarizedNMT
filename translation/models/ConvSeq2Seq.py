@@ -81,7 +81,7 @@ class ConvEncoder(EncoderModel):
         self.max_positions = max_positions
         self.convolution_spec = convolution_spec
         self.dropout = dropout
-        self.padding_idx = src_vocab['<pad>']
+        self.padding_idx = src_vocab.stoi['<pad>']
 
         self.embedding = Embedding(
             len(src_vocab),
