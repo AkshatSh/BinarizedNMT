@@ -17,6 +17,7 @@ import constants
 from vocab import Vocabulary, load_vocab
 import dataset as d
 import utils
+from tensor_logger import Logger
 
 def build_model(
     parser: argparse.ArgumentParser,
@@ -77,7 +78,10 @@ def train(
     save_step: int,
     model_name: str,
     optimizer: str,
+    batch_size: int,
+    log_step: int,
 ) -> None:
+    logger = Logger(log_dir)
     model = model.to(device)
     if multi_gpu and device == 'cuda':
        print('Using multi gpu training')
@@ -144,6 +148,20 @@ def train(
                     nan_count=nan_count,
                 )
                 pbar.refresh()
+
+                if (i + 1) % log_step == 0:
+                    # log every log step (excluding 0 for noise)
+                    logger.scalar_summary(
+                        "train loss_avg", 
+                        total_loss/count,
+                        (e * len(train_loader) + i) * batch_size,
+                    )
+
+                    logger.scalar_summary(
+                        "loss", 
+                        loss.item(),
+                        (e * len(train_loader) + i) * batch_size,
+                    )
 
                 if (i + 1) % save_step == 0:
                     print('Saving model at iteration {} for epoch {}'.format(i, e))
@@ -226,8 +244,12 @@ def main() -> None:
     print('using model...')
     print(model)
 
-    if not os.path.exists(args.log_dir):
-        os.makedirs(args.log_dir)
+    log_dir = os.path.join(
+        args.log_dir,
+        args.model_name,
+    )
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
     
     if not os.path.exists(os.path.join(args.save_dir, args.model_name)):
         os.makedirs(os.path.join(args.save_dir, args.model_name))
@@ -239,7 +261,7 @@ def main() -> None:
         epochs=args.num_epochs,
         learning_rate=args.learning_rate,
         weight_decay=args.weight_decay,
-        log_dir=args.log_dir,
+        log_dir=log_dir,
         save_dir=args.save_dir,
         en_vocab=src.vocab,
         fr_vocab=trg.vocab,
@@ -248,6 +270,8 @@ def main() -> None:
         save_step=args.save_step,
         model_name=args.model_name,
         optimizer=args.optimizer,
+        batch_size=args.batch_size,
+        log_step=args.log_step,
     )
 
 if __name__ == "__main__":
