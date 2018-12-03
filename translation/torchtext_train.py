@@ -81,7 +81,7 @@ def train(
     batch_size: int,
     log_step: int,
 ) -> None:
-    logger = Logger()
+    logger = Logger(log_dir)
     model = model.to(device)
     if multi_gpu and device == 'cuda':
        print('Using multi gpu training')
@@ -244,8 +244,12 @@ def main() -> None:
     print('using model...')
     print(model)
 
-    if not os.path.exists(args.log_dir):
-        os.makedirs(args.log_dir)
+    log_dir = os.path.join(
+        args.log_dir,
+        args.model_name,
+    )
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
     
     if not os.path.exists(os.path.join(args.save_dir, args.model_name)):
         os.makedirs(os.path.join(args.save_dir, args.model_name))
@@ -257,7 +261,7 @@ def main() -> None:
         epochs=args.num_epochs,
         learning_rate=args.learning_rate,
         weight_decay=args.weight_decay,
-        log_dir=args.log_dir,
+        log_dir=log_dir,
         save_dir=args.save_dir,
         en_vocab=src.vocab,
         fr_vocab=trg.vocab,
