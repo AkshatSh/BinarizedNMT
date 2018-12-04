@@ -169,6 +169,12 @@ def train(
                     )
                     return
                 loss.backward()
+
+                # TODO: try gradient clipping? for exploding gradient
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+                # for p in model.parameters():
+                #     p.data.add_(-learning_rate, p.grad.data)
+
                 optim.step()
                 total_loss += loss.item()
                 count += 1
