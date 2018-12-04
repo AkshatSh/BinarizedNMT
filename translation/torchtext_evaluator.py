@@ -44,6 +44,8 @@ def eval_bleu(
 
                 # predicted = model.generate_max(src, src_lengths, 100, device)
                 predicted = model.slow_generate(src, src_lengths, 100, device)
+                # predicted = (torch.Tensor(src.size(0), 100).uniform_() * (len(fr_vocab) - 1)).long()
+                # predicted = predicted * 
                 # predicted = model.generate_beam(src, src_lengths, 100, 5, device)
                 pred_arr = utils.torchtext_convert_to_str(predicted.cpu().numpy(), fr_vocab)[0]
                 out_arr = utils.torchtext_convert_to_str(trg.cpu().numpy(), fr_vocab)[0]
