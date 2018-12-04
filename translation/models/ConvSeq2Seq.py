@@ -30,7 +30,8 @@ from models.EncoderDecoder import (
 )
 
 from models.components.attention import (
-    AttentionModule
+    AttentionModule,
+    AttentionLayer,
 )
 
 from vocab import Vocabulary
@@ -58,7 +59,19 @@ ConvSpecEntry = Tuple[
 
 ConvSpecType = List[
     ConvSpecEntry
-] 
+]
+
+
+class GradMultiply(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x, scale):
+        ctx.scale = scale
+        res = x.new(x)
+        return res
+
+    @staticmethod
+    def backward(ctx, grad):
+        return grad * ctx.scale, None
 
 class ConvEncoder(EncoderModel):
     def __init__(
@@ -86,11 +99,12 @@ class ConvEncoder(EncoderModel):
         self.embedding = Embedding(
             len(src_vocab),
             embedding_dim,
+            self.padding_idx,
         )
 
         self.embed_positions = PositionalEmbedding(
             max_positions,
-            embed_dim,
+            embedding_dim,
             self.padding_idx,
         )
 
@@ -110,7 +124,7 @@ class ConvEncoder(EncoderModel):
                 residual_dim = out_channels
             else:
                 # connect to the dim of the -residual channel
-                resitudal_dim = layer_in_channels[-residual]
+                residual_dim = layer_in_channels[-residual]
             
             # create a projection to convert the last layer of channels
             # to the current one
@@ -129,7 +143,7 @@ class ConvEncoder(EncoderModel):
                 ConvTBC(
                     in_channels,
                     out_channels * 2,
-                    kernel_size,
+                    kernel_width,
                     dropout=dropout,
                     padding=padding,
                 )
@@ -154,16 +168,21 @@ class ConvEncoder(EncoderModel):
     ) -> torch.Tensor:
         # embed_tokens and positions
         embedded = self.embedding(src_tokens) + self.embed_positions(src_tokens)
-        x = F.dropout(x, p=self.dropout, training=self.training)
+        x = F.dropout(embedded, p=self.dropout, training=self.training)
         input_embedding = x
 
+        # transform input to be ready for convolution
+        x =  self.fc1(x)
+
         # a mask over the padding index
-        encoder_padding_mask = src_tokens.eq(self.padding_idx)
+        encoder_padding_mask = src_tokens.eq(self.padding_idx).t()
         if not encoder_padding_mask.any():
             encoder_padding_mask = None
 
         # TODO: Investiage if its necessary to transpose to T x B x C
         # currently going to assume it is not and go forward
+        # B x T x C -> T x B x C
+        x = x.transpose(0, 1)
 
         # residuals stores the results from each layer, for future residual
         # connections
@@ -207,10 +226,15 @@ class ConvEncoder(EncoderModel):
                 # connect with residual layer
                 # TODO why $$\sqrt{\frac{1}{2}}$$
                 x = (x + residual) * math.sqrt(0.5)
+            
+            residuals.append(x)
+        
+        # T x B x C -> B x T x C
+        x = x.transpose(1, 0)
 
         x = self.fc2(x)
         if encoder_padding_mask is not None:
-            encoder_padding_mask = encoder_padding_mask
+            encoder_padding_mask = encoder_padding_mask.t()
             x = x.masked_fill(encoder_padding_mask.unsqueeze(-1), 0)
         
         # TODO: why????
@@ -269,7 +293,11 @@ class ConvDecoder(DecoderModel):
             max_positions,
             embed_dim,
             padding_idx,
-        ) if positional_embeddings else None
+        ) if positional_embedding else None
+
+
+
+        in_channels = self.convolution_spec[0][0]
 
 
         self.fc1 = Linear(embed_dim, in_channels, dropout=dropout)
@@ -277,15 +305,13 @@ class ConvDecoder(DecoderModel):
         self.convolutions = nn.ModuleList()
         self.attentions = nn.ModuleList()
         self.residuals = []
-
-        in_channels = self.convolution_spec[0][0]
         layer_in_channels = [in_channels]
         for i, (out_channels, kernel_width, residual) in enumerate(self.convolution_spec):
             if residual == 0:
                 residual_dim = out_channels
             else:
                 # connect to the dim of the -residual channel
-                resitudal_dim = layer_in_channels[-residual]
+                residual_dim = layer_in_channels[-residual]
             
             # create a projection to convert the last layer of channels
             # to the current one
@@ -304,7 +330,7 @@ class ConvDecoder(DecoderModel):
                 ConvTBC(
                     in_channels,
                     out_channels * 2,
-                    kernel_size,
+                    kernel_width,
                     dropout=dropout,
                     padding=padding,
                 )
@@ -319,7 +345,7 @@ class ConvDecoder(DecoderModel):
                 AttentionLayer(
                     out_channels,
                     embed_dim,
-                ) if attention[i] else None
+                ) if self.attention[i] else None
             )
 
             in_channels = out_channels
@@ -341,6 +367,7 @@ class ConvDecoder(DecoderModel):
         encoder_out: tuple,
     ) -> torch.Tensor:
         (encoder_a, encoder_b), encoder_padding_mask = encoder_out
+        encoder_a = encoder_a.transpose(1, 2).contiguous()
 
         pos_embed = 0
         if self.embed_positions is not None:
@@ -358,7 +385,11 @@ class ConvDecoder(DecoderModel):
         # start convolutional layers
         x = self.fc1(x)
 
+
         # TODO: is transpose necessary?
+        x = x.transpose(0,1)
+
+
         avg_attn_scores = None
         num_attn = len(self.attentions)
         residuals = [x]
@@ -379,9 +410,9 @@ class ConvDecoder(DecoderModel):
             x = F.glu(x, dim=2)
 
             # attention
-            if attention is not None:
+            if attn is not None:
                 # TODO: transpose?
-                # x = x.transpose(0, 1)
+                x = x.transpose(0, 1)
 
                 x, attn_score = attn(x, target_embedding, (encoder_a, encoder_b), encoder_padding_mask)
                 if not self.training and self.need_attn:
@@ -392,19 +423,20 @@ class ConvDecoder(DecoderModel):
                         avg_attn_scores.add_(attn_scores)
 
                 # TODO transpose?
-                # x = x.transpose(0, 1)
+                x = x.transpose(0, 1)
             
             # residual connection
             if residual is not None:
                 x = (x + residual) * math.sqrt(0.5)
             residuals.append(x)
         
+        x = x.transpose(0, 1)
         # TODO transpose?
         x = self.fc2(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.fc3(x)
 
-        return x
+        return x, None
 
 def build_model(
     src_vocab: Vocabulary,
@@ -429,7 +461,7 @@ def build_model(
         dropout=encoder_dropout,
     )
 
-    decoder = AttentionDecoderRNN(
+    decoder = ConvDecoder(
         trg_dictionary=trg_vocab,
         embed_dim=decoder_embed_dim,
         out_embed_dim=decoder_out_embed_dim,
@@ -441,6 +473,8 @@ def build_model(
         positional_embedding=decoder_positional_embed,
     )
 
+    encoder.num_attention_layers = sum(layer is not None for layer in decoder.attentions)
+
     return EncoderDecoderModel(
         encoder,
         decoder,
@@ -449,9 +483,9 @@ def build_model(
     )
 
 def get_default_conv_spec() -> ConvSpecType:
-    convs = '[(512, 3)] * 9'  # first 9 layers have 512 units
-    convs += ' + [(1024, 3)] * 4'  # next 4 layers have 1024 units
-    convs += ' + [(2048, 1)] * 2'  # final 2 layers use 1x1 convolutions
+    convs = '[(512, 3, 1)] * 9'  # first 9 layers have 512 units
+    convs += ' + [(1024, 3, 1)] * 4'  # next 4 layers have 1024 units
+    convs += ' + [(2048, 1, 1)] * 2'  # final 2 layers use 1x1 convolutions
     return eval(convs)
 
 def add_args(parser: argparse.ArgumentParser) -> None:
