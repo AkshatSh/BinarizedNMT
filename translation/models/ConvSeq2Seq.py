@@ -270,6 +270,7 @@ class ConvDecoder(DecoderModel):
         self.out_embed_dim = out_embed_dim
         self.max_positions = max_positions
         self.convolution_spec = convolution_spec
+        self.need_attn = True
 
         if isinstance(attention, bool):
             self.attention = [attention] * len(convolution_spec)
@@ -376,7 +377,7 @@ class ConvDecoder(DecoderModel):
         self,
         prev_tokens: torch.Tensor,
         encoder_out: tuple,
-        intermediate_state: torch.Tensor = None,
+        intermediate_state: dict = None,
     ) -> torch.Tensor:
         (encoder_a, encoder_b), encoder_padding_mask = encoder_out
         encoder_a = encoder_a.transpose(1, 2).contiguous()
@@ -404,7 +405,7 @@ class ConvDecoder(DecoderModel):
         x = x.transpose(0,1) if intermediate_state is None else x
 
         avg_attn_scores = None
-        num_attn = len(self.attentions)
+        num_attn_layers = len(self.attentions)
         residuals = [x]
 
         for i, (proj, conv, attn, res_layer) in \
@@ -427,7 +428,7 @@ class ConvDecoder(DecoderModel):
                 # TODO: transpose?
                 x = x.transpose(0, 1) if intermediate_state is None else x
 
-                x, attn_score = attn(x, target_embedding, (encoder_a, encoder_b), encoder_padding_mask)
+                x, attn_scores = attn(x, target_embedding, (encoder_a, encoder_b), encoder_padding_mask)
                 if not self.training and self.need_attn:
                     attn_scores = attn_scores / num_attn_layers
                     if avg_attn_scores is None:
@@ -496,10 +497,16 @@ def build_model(
     )
 
 def get_default_conv_spec() -> ConvSpecType:
-    convs = '[(512, 3, 1)] * 9'  # first 9 layers have 512 units
-    convs += ' + [(1024, 3, 1)] * 4'  # next 4 layers have 1024 units
-    convs += ' + [(2048, 1, 1)] * 2'  # final 2 layers use 1x1 convolutions
-    # convs = '[(256,3,1)] * 4'
+    # convs = '[(512, 3, 1)] * 9'  # first 9 layers have 512 units
+    # convs += ' + [(1024, 3, 1)] * 4'  # next 4 layers have 1024 units
+    # convs += ' + [(2048, 1, 1)] * 2'  # final 2 layers use 1x1 convolutions
+    # Above architecture experiences exploding gradients
+    
+    convs = '[(256, 3, 1)] * 4'
+    # convs = '[(256, 3, 1)] * 2 + [(512, 3, 1)] * 2'
+
+    # convs = '[(512,3,1)] * 3 + [(1024, 3, 1)] * 4'
+    # above architecture experiences exploding gradients
     return eval(convs)
 
 def add_args(parser: argparse.ArgumentParser) -> None:
