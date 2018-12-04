@@ -502,8 +502,10 @@ def get_default_conv_spec() -> ConvSpecType:
     # convs += ' + [(2048, 1, 1)] * 2'  # final 2 layers use 1x1 convolutions
     # Above architecture experiences exploding gradients
     
-    convs = '[(256, 3, 1)] * 4'
+    # convs = '[(256, 3, 1)] * 4'
     # convs = '[(256, 3, 1)] * 2 + [(512, 3, 1)] * 2'
+
+    convs = '[(512, 3, 1)] * 2 + [(1024, 3, 1)] * 2' # + [(2048, 1, 1)] * 2'
 
     # convs = '[(512,3,1)] * 3 + [(1024, 3, 1)] * 4'
     # above architecture experiences exploding gradients
