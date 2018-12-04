@@ -150,6 +150,13 @@ def train(
                         ignore_index=fr_vocab.word2idx(constants.PAD_TOKEN),
                     )
 
+                # if loss.item() > 1e2:
+                #     print('something happened at: {} with loss: {}'.format(i, loss.item()))
+                #     torch.save(
+                #         model.state_dict(), 
+                #         os.path.join('exploding_problem.pt')
+                #     )
+                #     return
                 if should_save and math.isnan(loss.item()):
                     '''
                     Ignore nan loss for backward, and continue forward
@@ -278,7 +285,6 @@ def main() -> None:
     
     if args.should_save and not os.path.exists(os.path.join(args.save_dir, args.model_name)):
         os.makedirs(os.path.join(args.save_dir, args.model_name))
-
     train(
         train_loader=train_loader,
         valid_loader=None, # valid_loader,
