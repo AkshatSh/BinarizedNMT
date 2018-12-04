@@ -20,6 +20,7 @@ from models.components.fairseq.conv_utils import (
     PositionalEmbedding,
     ConvTBC,
     Embedding,
+    LinearizedConv1d,
 )
 
 from models.EncoderDecoder import (
@@ -326,13 +327,23 @@ class ConvDecoder(DecoderModel):
                 padding = 0
             
             # create a convolution for the layer
+            # self.convolutions.append(
+            #     ConvTBC(
+            #         in_channels,
+            #         out_channels * 2,
+            #         kernel_width,
+            #         dropout=dropout,
+            #         padding=padding,
+            #     )
+            # )
+
             self.convolutions.append(
-                ConvTBC(
+                LinearizedConv1d(
                     in_channels,
                     out_channels * 2,
                     kernel_width,
+                    padding=(kernel_width - 1),
                     dropout=dropout,
-                    padding=padding,
                 )
             )
 
@@ -365,6 +376,7 @@ class ConvDecoder(DecoderModel):
         self,
         prev_tokens: torch.Tensor,
         encoder_out: tuple,
+        intermediate_state: torch.Tensor = None,
     ) -> torch.Tensor:
         (encoder_a, encoder_b), encoder_padding_mask = encoder_out
         encoder_a = encoder_a.transpose(1, 2).contiguous()
@@ -375,6 +387,8 @@ class ConvDecoder(DecoderModel):
                 prev_tokens,
             )
         
+        if intermediate_state is not None:
+            prev_tokens = prev_tokens[:, -1:]
         x = self.embed_tokens(prev_tokens)
 
         # add the positional embedding
@@ -387,8 +401,7 @@ class ConvDecoder(DecoderModel):
 
 
         # TODO: is transpose necessary?
-        x = x.transpose(0,1)
-
+        x = x.transpose(0,1) if intermediate_state is None else x
 
         avg_attn_scores = None
         num_attn = len(self.attentions)
@@ -406,13 +419,13 @@ class ConvDecoder(DecoderModel):
                 residual = proj(residual) if proj is not None else residual
 
             x = F.dropout(x, p=self.dropout, training=self.training)
-            x = conv(x)
+            x = conv(x, intermediate_state)
             x = F.glu(x, dim=2)
 
             # attention
             if attn is not None:
                 # TODO: transpose?
-                x = x.transpose(0, 1)
+                x = x.transpose(0, 1) if intermediate_state is None else x
 
                 x, attn_score = attn(x, target_embedding, (encoder_a, encoder_b), encoder_padding_mask)
                 if not self.training and self.need_attn:
@@ -423,14 +436,14 @@ class ConvDecoder(DecoderModel):
                         avg_attn_scores.add_(attn_scores)
 
                 # TODO transpose?
-                x = x.transpose(0, 1)
+                x = x.transpose(0, 1) if intermediate_state is None else x
             
             # residual connection
             if residual is not None:
                 x = (x + residual) * math.sqrt(0.5)
             residuals.append(x)
         
-        x = x.transpose(0, 1)
+        x = x.transpose(0, 1) if intermediate_state is None else x
         # TODO transpose?
         x = self.fc2(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
@@ -486,6 +499,7 @@ def get_default_conv_spec() -> ConvSpecType:
     convs = '[(512, 3, 1)] * 9'  # first 9 layers have 512 units
     convs += ' + [(1024, 3, 1)] * 4'  # next 4 layers have 1024 units
     convs += ' + [(2048, 1, 1)] * 2'  # final 2 layers use 1x1 convolutions
+    # convs = '[(256,3,1)] * 4'
     return eval(convs)
 
 def add_args(parser: argparse.ArgumentParser) -> None:
