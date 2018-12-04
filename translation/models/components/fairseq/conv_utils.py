@@ -7,6 +7,8 @@ from .learned_positional_embedding import (
     LearnedPositionalEmbedding
 )
 
+from .linearized_conv import LinearizedConvolution as fairseq_linear_conv
+
 from .conv_tbc import ConvTBC as fairseq_convtbc
 
 def Embedding(
@@ -49,7 +51,7 @@ def LinearizedConv1d(
     **kwargs,
 ) -> nn.Module:
     """Weight-normalized Conv1d layer optimized for decoding"""
-    m = LinearizedConvolution(in_channels, out_channels, kernel_size, **kwargs)
+    m = fairseq_linear_conv(in_channels, out_channels, kernel_size, **kwargs)
     std = math.sqrt((4 * (1.0 - dropout)) / (m.kernel_size[0] * in_channels))
     nn.init.normal_(m.weight, mean=0, std=std)
     nn.init.constant_(m.bias, 0)
