@@ -1,5 +1,13 @@
+import math
+
 import torch
 from torch import nn
+
+from .learned_positional_embedding import (
+    LearnedPositionalEmbedding
+)
+
+from .conv_tbc import ConvTBC as fairseq_convtbc
 
 def Embedding(
     num_embeddings: int, 
@@ -56,8 +64,7 @@ def ConvTBC(
     **kwargs,
 ) -> nn.Module:
     """Weight-normalized Conv1d layer"""
-    from fairseq.modules import ConvTBC
-    m = ConvTBC(in_channels, out_channels, kernel_size, **kwargs)
+    m = fairseq_convtbc(in_channels, out_channels, kernel_size, **kwargs)
     std = math.sqrt((4 * (1.0 - dropout)) / (m.kernel_size[0] * in_channels))
     nn.init.normal_(m.weight, mean=0, std=std)
     nn.init.constant_(m.bias, 0)
