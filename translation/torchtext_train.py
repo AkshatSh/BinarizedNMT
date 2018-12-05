@@ -35,21 +35,22 @@ def eval_model(
     model.eval()
     total_loss = 0.0
     total_ppl = 0.0
-    for i, data in enumerate(tqdm(valid_loader)):
-        src, src_lengths = data.src
-        trg, trg_lengths = data.trg
-        # feed everything into model
-        # compute loss
-        # compute ppl
-        predicted, _ = model.forward(src, src_lengths, trg)
-        loss = F.cross_entropy(
-            predicted[:, :-1].contiguous().view(-1, len(trg_vocab)),
-            trg[:, 1:].contiguous().view(-1),
-            ignore_index=trg_vocab.stoi['<pad>'],
-        )
+    with torch.no_grad():
+        for i, data in enumerate(tqdm(valid_loader)):
+            src, src_lengths = data.src
+            trg, trg_lengths = data.trg
+            # feed everything into model
+            # compute loss
+            # compute ppl
+            predicted, _ = model.forward(src, src_lengths, trg)
+            loss = F.cross_entropy(
+                predicted[:, :-1].contiguous().view(-1, len(trg_vocab)),
+                trg[:, 1:].contiguous().view(-1),
+                ignore_index=trg_vocab.stoi['<pad>'],
+            )
 
-        total_loss += loss.item()
-        total_ppl += math.exp(loss.item())
+            total_loss += loss.item()
+            total_ppl += math.exp(loss.item())
     model.train()
     return total_loss / len(valid_loader), total_ppl / len(valid_loader)
 
@@ -229,6 +230,8 @@ def main() -> None:
         )
 
         print('loading vocabulary...')
+
+        # mt_dev shares the fields, so it shares their vocab objects
         src.build_vocab(
             mt_train,
             min_freq=args.torchtext_unk,
@@ -239,8 +242,7 @@ def main() -> None:
             mt_train,
             max_size=args.torchtext_trg_max_vocab,
         )
-    print('loaded vocabulary')
-    # mt_dev shares the fields, so it shares their vocab objects
+        print('loaded vocabulary')
 
     train_loader = data.BucketIterator(
         dataset=mt_train,
@@ -259,7 +261,7 @@ def main() -> None:
     )
 
     model = utils.build_model(parser, src.vocab, trg.vocab)
-    model.load_state_dict(torch.load('saved_models/conv_test_large/model_epoch_9_final'))
+    # model.load_state_dict(torch.load('saved_models/conv_test_large/model_epoch_9_final'))
 
     print('using model...')
     print(model)
