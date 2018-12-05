@@ -118,6 +118,29 @@ class EncoderDecoderModel(nn.Module):
         
         return output
     
+    def slow_generate(
+        self,
+        src_tokens: torch.Tensor,
+        src_lengths: torch.Tensor,
+        max_seq_len: int,
+        device: str = 'cpu',
+    ) -> torch.Tensor:
+        batch_size = src_tokens.shape[0]
+        output = torch.zeros((batch_size, max_seq_len)).long().to(device)
+        encoder_out = self.encoder(src_tokens, src_lengths)
+        output[:,:1] = self.trg_vocab.stoi['<sos>']
+        intermediate_state = None
+        for i in range(max_seq_len - 1):
+            decoder_out, _ = self.decoder(
+                prev_tokens=output[:, :i + 1],
+                encoder_out=encoder_out,
+            )
+            decoder_out = decoder_out[:, -1:]
+            topv, topi = decoder_out.max(2)
+            output[:, i+1:i+2] = topi
+        
+        return output
+    
     def generate_beam(
         self,
         src_tokens: torch.Tensor,

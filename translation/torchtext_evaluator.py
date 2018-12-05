@@ -18,49 +18,6 @@ from vocab import Vocabulary, load_vocab
 import dataset as d
 import utils
 
-def build_model(
-    parser: argparse.ArgumentParser,
-    en_vocab: Vocabulary,
-    fr_vocab: Vocabulary,
-) -> nn.Module:
-    # TODO make switch case
-    args = parser.parse_args()
-    if args.model_type == 'SimpleLSTM':
-        SimpleLSTMModel.add_args(parser)
-        args = parser.parse_args()
-        return SimpleLSTMModel.build_model(
-            src_vocab=en_vocab,
-            trg_vocab=fr_vocab,
-            encoder_embed_dim=args.encoder_embed_dim,
-            encoder_hidden_dim=args.encoder_hidden_dim,
-            encoder_dropout=args.encoder_dropout,
-            encoder_num_layers=args.encoder_layers,
-            decoder_embed_dim=args.decoder_embed_dim,
-            decoder_hidden_dim=args.decoder_hidden_dim,
-            decoder_dropout=args.decoder_dropout,
-            decoder_num_layers=args.decoder_layers,
-        )
-    elif args.model_type == 'AttentionRNN':
-        AttentionRNN.add_args(parser)
-        args = parser.parse_args()
-        return AttentionRNN.build_model(
-            src_vocab=en_vocab,
-            trg_vocab=fr_vocab,
-            encoder_embed_dim=args.encoder_embed_dim,
-            encoder_hidden_dim=args.encoder_hidden_dim,
-            encoder_dropout=args.encoder_dropout,
-            encoder_num_layers=args.encoder_layers,
-            decoder_embed_dim=args.decoder_embed_dim,
-            decoder_hidden_dim=args.decoder_hidden_dim,
-            decoder_dropout=args.decoder_dropout,
-            decoder_num_layers=args.decoder_layers,
-            teacher_student_ratio=args.teacher_student_ratio,
-        )
-    else:
-        raise Exception(
-            "Unknown Model Type: {}".format(args.model_type)
-        )
-
 def eval_bleu(
     train_loader: d.BatchedIterator,
     valid_loader: d.BatchedIterator,
@@ -85,7 +42,10 @@ def eval_bleu(
                 src, src_lengths = data.src
                 trg, trg_lengths = data.trg
 
-                predicted = model.generate_max(src, src_lengths, 100, device)
+                # predicted = model.generate_max(src, src_lengths, 100, device)
+                predicted = model.slow_generate(src, src_lengths, 100, device)
+                # predicted = (torch.Tensor(src.size(0), 100).uniform_() * (len(fr_vocab) - 1)).long()
+                # predicted = predicted * 
                 # predicted = model.generate_beam(src, src_lengths, 100, 5, device)
                 pred_arr = utils.torchtext_convert_to_str(predicted.cpu().numpy(), fr_vocab)[0]
                 out_arr = utils.torchtext_convert_to_str(trg.cpu().numpy(), fr_vocab)[0]
@@ -112,7 +72,7 @@ def eval_bleu(
 
                 count += 1
                 pbar.set_postfix(
-                    curr_bleu=curr_bleu,
+                    curr_bleu=curr_bleu * 100,
                     avg_bleu=(sum(bleus) / len(bleus) * 100)
                 )
                 pbar.refresh()
@@ -168,7 +128,7 @@ def main() -> None:
     )
 
     print('model type: {}'.format(args.model_type))
-    model = build_model(parser, src.vocab, trg.vocab)
+    model = utils.build_model(parser, src.vocab, trg.vocab)
     model.load_state_dict(torch.load(args.load_path))
     model = model.eval()
 

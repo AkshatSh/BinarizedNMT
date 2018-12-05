@@ -4,13 +4,22 @@ from typing import List
 import torch
 import numpy as np
 import torchtext
+import torch
+from torch import nn
 from torchtext.vocab import Vocab
 from typing import Tuple
 import pickle
 import nltk
+import argparse
 
 from vocab import Vocabulary
 import constants
+
+from models import (
+    AttentionRNN,
+    ConvSeq2Seq,
+    SimpleLSTMModel,
+)
 
 def get_num_lines(file_path: str) -> int:
     '''
@@ -74,3 +83,64 @@ def compute_bleu(predicted: List[str], expected: List[str]) -> float:
     nltk.translate.bleu_score.sentence_bleu([reference], hypothesis)
     '''
     return nltk.translate.bleu_score.sentence_bleu([expected], predicted)
+
+def build_model(
+    parser: argparse.ArgumentParser,
+    en_vocab: Vocabulary,
+    fr_vocab: Vocabulary,
+) -> nn.Module:
+    # TODO make switch case
+    args = parser.parse_args()
+    if args.model_type == 'SimpleLSTM':
+        SimpleLSTMModel.add_args(parser)
+        args = parser.parse_args()
+        return SimpleLSTMModel.build_model(
+            src_vocab=en_vocab,
+            trg_vocab=fr_vocab,
+            encoder_embed_dim=args.encoder_embed_dim,
+            encoder_hidden_dim=args.encoder_hidden_dim,
+            encoder_dropout=args.encoder_dropout,
+            encoder_num_layers=args.encoder_layers,
+            decoder_embed_dim=args.decoder_embed_dim,
+            decoder_hidden_dim=args.decoder_hidden_dim,
+            decoder_dropout=args.decoder_dropout,
+            decoder_num_layers=args.decoder_layers,
+        )
+    elif args.model_type == 'AttentionRNN':
+        AttentionRNN.add_args(parser)
+        args = parser.parse_args()
+        return AttentionRNN.build_model(
+            src_vocab=en_vocab,
+            trg_vocab=fr_vocab,
+            encoder_embed_dim=args.encoder_embed_dim,
+            encoder_hidden_dim=args.encoder_hidden_dim,
+            encoder_dropout=args.encoder_dropout,
+            encoder_num_layers=args.encoder_layers,
+            decoder_embed_dim=args.decoder_embed_dim,
+            decoder_hidden_dim=args.decoder_hidden_dim,
+            decoder_dropout=args.decoder_dropout,
+            decoder_num_layers=args.decoder_layers,
+            teacher_student_ratio=args.teacher_student_ratio,
+        )
+    elif args.model_type == 'ConvSeq2Seq':
+        ConvSeq2Seq.add_args(parser)
+        args = parser.parse_args()
+        return ConvSeq2Seq.build_model(
+            src_vocab=en_vocab,
+            trg_vocab=fr_vocab,
+            max_positions=args.max_positions,
+            encoder_embed_dim=args.encoder_embed_dim,
+            encoder_conv_spec=args.encoder_conv_spec,
+            encoder_dropout=args.encoder_dropout,
+            decoder_embed_dim=args.decoder_embed_dim,
+            decoder_out_embed_dim=args.decoder_out_embed_dim,
+            decoder_conv_spec=args.decoder_conv_spec,
+            decoder_dropout=args.decoder_dropout,
+            decoder_attention=args.decoder_attention,
+            share_embed=args.share_embed,
+            decoder_positional_embed=args.decoder_positional_embed,
+        )
+    else:
+        raise Exception(
+            "Unknown Model Type: {}".format(args.model_type)
+        )

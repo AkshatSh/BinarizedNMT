@@ -7,11 +7,18 @@ import torch
 import torchtext
 from torchtext import data
 from torchtext import datasets
+from torchtext.vocab import Vocab
 from torch import nn
 import torch.nn.functional as F
 import math
 
-from models import SimpleLSTMModel, AttentionRNN
+from models import (
+    AttentionRNN,
+    # ConvSeq2Seq,
+    ConvS2S,
+    SimpleLSTMModel,
+)
+
 from train_args import get_arg_parser
 import constants
 from vocab import Vocabulary, load_vocab
@@ -19,48 +26,33 @@ import dataset as d
 import utils
 from tensor_logger import Logger
 
-def build_model(
-    parser: argparse.ArgumentParser,
-    en_vocab: Vocabulary,
-    fr_vocab: Vocabulary,
-) -> nn.Module:
-    # TODO make switch case
-    args = parser.parse_args()
-    if args.model_type == 'SimpleLSTM':
-        SimpleLSTMModel.add_args(parser)
-        args = parser.parse_args()
-        return SimpleLSTMModel.build_model(
-            src_vocab=en_vocab,
-            trg_vocab=fr_vocab,
-            encoder_embed_dim=args.encoder_embed_dim,
-            encoder_hidden_dim=args.encoder_hidden_dim,
-            encoder_dropout=args.encoder_dropout,
-            encoder_num_layers=args.encoder_layers,
-            decoder_embed_dim=args.decoder_embed_dim,
-            decoder_hidden_dim=args.decoder_hidden_dim,
-            decoder_dropout=args.decoder_dropout,
-            decoder_num_layers=args.decoder_layers,
-        )
-    elif args.model_type == 'AttentionRNN':
-        AttentionRNN.add_args(parser)
-        args = parser.parse_args()
-        return AttentionRNN.build_model(
-            src_vocab=en_vocab,
-            trg_vocab=fr_vocab,
-            encoder_embed_dim=args.encoder_embed_dim,
-            encoder_hidden_dim=args.encoder_hidden_dim,
-            encoder_dropout=args.encoder_dropout,
-            encoder_num_layers=args.encoder_layers,
-            decoder_embed_dim=args.decoder_embed_dim,
-            decoder_hidden_dim=args.decoder_hidden_dim,
-            decoder_dropout=args.decoder_dropout,
-            decoder_num_layers=args.decoder_layers,
-            teacher_student_ratio=args.teacher_student_ratio,
-        )
-    else:
-        raise Exception(
-            "Unknown Model Type: {}".format(args.model_type)
-        )
+def eval_model(
+    src_vocab: Vocab,
+    trg_vocab: Vocab,
+    model: nn.Module,
+    valid_loader: d.BatchedIterator,
+) -> tuple:
+    model.eval()
+    total_loss = 0.0
+    total_ppl = 0.0
+    with torch.no_grad():
+        for i, data in enumerate(tqdm(valid_loader)):
+            src, src_lengths = data.src
+            trg, trg_lengths = data.trg
+            # feed everything into model
+            # compute loss
+            # compute ppl
+            predicted, _ = model.forward(src, src_lengths, trg)
+            loss = F.cross_entropy(
+                predicted[:, :-1].contiguous().view(-1, len(trg_vocab)),
+                trg[:, 1:].contiguous().view(-1),
+                ignore_index=trg_vocab.stoi['<pad>'],
+            )
+
+            total_loss += loss.item()
+            total_ppl += math.exp(loss.item())
+    model.train()
+    return total_loss / len(valid_loader), total_ppl / len(valid_loader)
 
 def train(
     train_loader: d.BatchedIterator,
@@ -71,8 +63,8 @@ def train(
     weight_decay: float,
     log_dir: str,
     save_dir: str,
-    en_vocab: Vocabulary,
-    fr_vocab: Vocabulary,
+    en_vocab: Vocab,
+    fr_vocab: Vocab,
     device: str,
     multi_gpu: bool,
     save_step: int,
@@ -80,6 +72,7 @@ def train(
     optimizer: str,
     batch_size: int,
     log_step: int,
+    should_save: bool,
 ) -> None:
     logger = Logger(log_dir)
     model = model.to(device)
@@ -126,7 +119,14 @@ def train(
                         ignore_index=fr_vocab.word2idx(constants.PAD_TOKEN),
                     )
 
-                if math.isnan(loss.item()):
+                # if loss.item() > 1e2:
+                #     print('something happened at: {} with loss: {}'.format(i, loss.item()))
+                #     torch.save(
+                #         model.state_dict(), 
+                #         os.path.join('exploding_problem.pt')
+                #     )
+                #     return
+                if should_save and math.isnan(loss.item()):
                     '''
                     Ignore nan loss for backward, and continue forward
                     '''
@@ -138,6 +138,12 @@ def train(
                     )
                     return
                 loss.backward()
+
+                # TODO: try gradient clipping? for exploding gradient
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+                # for p in model.parameters():
+                #     p.data.add_(-learning_rate, p.grad.data)
+
                 optim.step()
                 total_loss += loss.item()
                 count += 1
@@ -149,7 +155,7 @@ def train(
                 )
                 pbar.refresh()
 
-                if (i + 1) % log_step == 0:
+                if should_save and (i + 1) % log_step == 0:
                     # log every log step (excluding 0 for noise)
                     logger.scalar_summary(
                         "train loss_avg", 
@@ -171,12 +177,16 @@ def train(
                         os.path.join(save_dir, model_name, model_file_name)
                     )
             print("Summary: Total Loss {} | Count {} | Average {}".format(total_loss, count, total_loss / count))
-            model_file_name = "model_epoch_{}_final".format(e)
-            print('saving to {}'.format(os.path.join(save_dir, model_name, model_file_name)))
-            torch.save(
-                model.state_dict(), 
-                os.path.join(save_dir, model_name, model_file_name)
-            )
+            if should_save:
+                model_file_name = "model_epoch_{}_final".format(e)
+                print('saving to {}'.format(os.path.join(save_dir, model_name, model_file_name)))
+                torch.save(
+                    model.state_dict(), 
+                    os.path.join(save_dir, model_name, model_file_name)
+                )
+            if valid_loader is not None:
+                valid_loss, valid_ppl = eval_model(en_vocab, fr_vocab, model, valid_loader)
+                print("Valid loss avg : {} | Valid Perplexity: {}".format(valid_loss, valid_ppl))
 
 def main() -> None:
     parser = get_arg_parser()
@@ -211,13 +221,17 @@ def main() -> None:
         src.vocab = src_vocab
 
         trg.vocab = trg_vocab
+
+        mt_valid = None
     else:
-        mt_train, _, _ = datasets.Multi30k.splits(
+        mt_train, mt_valid, _ = datasets.Multi30k.splits(
             exts=('.en', '.de'),
             fields=(src, trg),
         )
 
         print('loading vocabulary...')
+
+        # mt_dev shares the fields, so it shares their vocab objects
         src.build_vocab(
             mt_train,
             min_freq=args.torchtext_unk,
@@ -228,8 +242,7 @@ def main() -> None:
             mt_train,
             max_size=args.torchtext_trg_max_vocab,
         )
-    print('loaded vocabulary')
-    # mt_dev shares the fields, so it shares their vocab objects
+        print('loaded vocabulary')
 
     train_loader = data.BucketIterator(
         dataset=mt_train,
@@ -239,7 +252,16 @@ def main() -> None:
         device=device,
     )
 
-    model = build_model(parser, src.vocab, trg.vocab)
+    valid_loader = None if mt_valid is None else data.BucketIterator(
+        dataset=mt_valid,
+        batch_size=args.batch_size,
+        sort_key=lambda x: len(x.src), # data.interleave_keys(len(x.src), len(x.trg)),
+        sort_within_batch=True,
+        device=device,
+    )
+
+    model = utils.build_model(parser, src.vocab, trg.vocab)
+    # model.load_state_dict(torch.load('saved_models/conv_test_large/model_epoch_9_final'))
 
     print('using model...')
     print(model)
@@ -248,15 +270,14 @@ def main() -> None:
         args.log_dir,
         args.model_name,
     )
-    if not os.path.exists(log_dir):
+    if args.should_save and  not os.path.exists(log_dir):
         os.makedirs(log_dir)
     
-    if not os.path.exists(os.path.join(args.save_dir, args.model_name)):
+    if args.should_save and not os.path.exists(os.path.join(args.save_dir, args.model_name)):
         os.makedirs(os.path.join(args.save_dir, args.model_name))
-
     train(
         train_loader=train_loader,
-        valid_loader=None, # valid_loader,
+        valid_loader=valid_loader,
         model=model,
         epochs=args.num_epochs,
         learning_rate=args.learning_rate,
@@ -272,6 +293,7 @@ def main() -> None:
         optimizer=args.optimizer,
         batch_size=args.batch_size,
         log_step=args.log_step,
+        should_save=args.should_save,
     )
 
 if __name__ == "__main__":
