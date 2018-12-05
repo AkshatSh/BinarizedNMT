@@ -7,13 +7,15 @@ import torch
 import torchtext
 from torchtext import data
 from torchtext import datasets
+from torchtext.vocab import Vocab
 from torch import nn
 import torch.nn.functional as F
 import math
 
 from models import (
     AttentionRNN,
-    ConvSeq2Seq,
+    # ConvSeq2Seq,
+    ConvS2S,
     SimpleLSTMModel,
 )
 
@@ -24,66 +26,32 @@ import dataset as d
 import utils
 from tensor_logger import Logger
 
-def build_model(
-    parser: argparse.ArgumentParser,
-    en_vocab: Vocabulary,
-    fr_vocab: Vocabulary,
-) -> nn.Module:
-    # TODO make switch case
-    args = parser.parse_args()
-    if args.model_type == 'SimpleLSTM':
-        SimpleLSTMModel.add_args(parser)
-        args = parser.parse_args()
-        return SimpleLSTMModel.build_model(
-            src_vocab=en_vocab,
-            trg_vocab=fr_vocab,
-            encoder_embed_dim=args.encoder_embed_dim,
-            encoder_hidden_dim=args.encoder_hidden_dim,
-            encoder_dropout=args.encoder_dropout,
-            encoder_num_layers=args.encoder_layers,
-            decoder_embed_dim=args.decoder_embed_dim,
-            decoder_hidden_dim=args.decoder_hidden_dim,
-            decoder_dropout=args.decoder_dropout,
-            decoder_num_layers=args.decoder_layers,
+def eval_model(
+    src_vocab: Vocab,
+    trg_vocab: Vocab,
+    model: nn.Module,
+    valid_loader: d.BatchedIterator,
+) -> tuple:
+    model.eval()
+    total_loss = 0.0
+    total_ppl = 0.0
+    for i, data in enumerate(tqdm(valid_loader)):
+        src, src_lengths = data.src
+        trg, trg_lengths = data.trg
+        # feed everything into model
+        # compute loss
+        # compute ppl
+        predicted, _ = model.forward(src, src_lengths, trg)
+        loss = F.cross_entropy(
+            predicted[:, :-1].contiguous().view(-1, len(trg_vocab)),
+            trg[:, 1:].contiguous().view(-1),
+            ignore_index=trg_vocab.stoi['<pad>'],
         )
-    elif args.model_type == 'AttentionRNN':
-        AttentionRNN.add_args(parser)
-        args = parser.parse_args()
-        return AttentionRNN.build_model(
-            src_vocab=en_vocab,
-            trg_vocab=fr_vocab,
-            encoder_embed_dim=args.encoder_embed_dim,
-            encoder_hidden_dim=args.encoder_hidden_dim,
-            encoder_dropout=args.encoder_dropout,
-            encoder_num_layers=args.encoder_layers,
-            decoder_embed_dim=args.decoder_embed_dim,
-            decoder_hidden_dim=args.decoder_hidden_dim,
-            decoder_dropout=args.decoder_dropout,
-            decoder_num_layers=args.decoder_layers,
-            teacher_student_ratio=args.teacher_student_ratio,
-        )
-    elif args.model_type == 'ConvSeq2Seq':
-        ConvSeq2Seq.add_args(parser)
-        args = parser.parse_args()
-        return ConvSeq2Seq.build_model(
-            src_vocab=en_vocab,
-            trg_vocab=fr_vocab,
-            max_positions=args.max_positions,
-            encoder_embed_dim=args.encoder_embed_dim,
-            encoder_conv_spec=args.encoder_conv_spec,
-            encoder_dropout=args.encoder_dropout,
-            decoder_embed_dim=args.decoder_embed_dim,
-            decoder_out_embed_dim=args.decoder_out_embed_dim,
-            decoder_conv_spec=args.decoder_conv_spec,
-            decoder_dropout=args.decoder_dropout,
-            decoder_attention=args.decoder_attention,
-            share_embed=args.share_embed,
-            decoder_positional_embed=args.decoder_positional_embed,
-        )
-    else:
-        raise Exception(
-            "Unknown Model Type: {}".format(args.model_type)
-        )
+
+        total_loss += loss.item()
+        total_ppl += math.exp(loss.item())
+    model.train()
+    return total_loss / len(valid_loader), total_ppl / len(valid_loader)
 
 def train(
     train_loader: d.BatchedIterator,
@@ -94,8 +62,8 @@ def train(
     weight_decay: float,
     log_dir: str,
     save_dir: str,
-    en_vocab: Vocabulary,
-    fr_vocab: Vocabulary,
+    en_vocab: Vocab,
+    fr_vocab: Vocab,
     device: str,
     multi_gpu: bool,
     save_step: int,
@@ -215,6 +183,9 @@ def train(
                     model.state_dict(), 
                     os.path.join(save_dir, model_name, model_file_name)
                 )
+            if valid_loader is not None:
+                valid_loss, valid_ppl = eval_model(en_vocab, fr_vocab, model, valid_loader)
+                print("Valid loss avg : {} | Valid Perplexity: {}".format(valid_loss, valid_ppl))
 
 def main() -> None:
     parser = get_arg_parser()
@@ -249,8 +220,10 @@ def main() -> None:
         src.vocab = src_vocab
 
         trg.vocab = trg_vocab
+
+        mt_valid = None
     else:
-        mt_train, _, _ = datasets.Multi30k.splits(
+        mt_train, mt_valid, _ = datasets.Multi30k.splits(
             exts=('.en', '.de'),
             fields=(src, trg),
         )
@@ -277,7 +250,16 @@ def main() -> None:
         device=device,
     )
 
-    model = build_model(parser, src.vocab, trg.vocab)
+    valid_loader = None if mt_valid is None else data.BucketIterator(
+        dataset=mt_valid,
+        batch_size=args.batch_size,
+        sort_key=lambda x: len(x.src), # data.interleave_keys(len(x.src), len(x.trg)),
+        sort_within_batch=True,
+        device=device,
+    )
+
+    model = utils.build_model(parser, src.vocab, trg.vocab)
+    model.load_state_dict(torch.load('saved_models/conv_test_large/model_epoch_9_final'))
 
     print('using model...')
     print(model)
@@ -293,7 +275,7 @@ def main() -> None:
         os.makedirs(os.path.join(args.save_dir, args.model_name))
     train(
         train_loader=train_loader,
-        valid_loader=None, # valid_loader,
+        valid_loader=valid_loader,
         model=model,
         epochs=args.num_epochs,
         learning_rate=args.learning_rate,
