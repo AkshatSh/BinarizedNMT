@@ -153,7 +153,7 @@ class AttentionLayer(nn.Module):
 
         self.bmm = bmm if bmm is not None else torch.bmm
 
-    def forward(self, x, target_embedding, encoder_out, encoder_padding_mask):
+    def forward(self, x, target_embedding, encoder_out, encoder_padding_mask=None):
         residual = x
 
         # attention
