@@ -321,16 +321,6 @@ class ConvDecoder(DecoderModel):
                 padding = 0
             
             # create a convolution for the layer
-            # self.convolutions.append(
-            #     ConvTBC(
-            #         in_channels,
-            #         out_channels * 2,
-            #         kernel_width,
-            #         dropout=dropout,
-            #         padding=padding,
-            #     )
-            # )
-
             self.convolutions.append(
                 Conv1d(
                     in_channels,
