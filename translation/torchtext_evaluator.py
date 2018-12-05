@@ -42,8 +42,8 @@ def eval_bleu(
                 src, src_lengths = data.src
                 trg, trg_lengths = data.trg
 
-                # predicted = model.generate_max(src, src_lengths, 100, device)
-                predicted = model.slow_generate(src, src_lengths, 100, device)
+                predicted = model.generate_max(src, src_lengths, 100, device)
+                # predicted = model.slow_generate(src, src_lengths, 100, device)
                 # predicted = (torch.Tensor(src.size(0), 100).uniform_() * (len(fr_vocab) - 1)).long()
                 # predicted = predicted * 
                 # predicted = model.generate_beam(src, src_lengths, 100, 5, device)
@@ -94,33 +94,47 @@ def main() -> None:
                init_token='<sos>', eos_token='<eos>', batch_first=True)
     
     if not args.small:
-        # mt_train = datasets.TranslationDataset(
-        #     path=constants.WMT14_EN_FR_SMALL_TRAIN,
-        #     exts=('.en', '.fr'),
-        #     fields=(src, trg)
-        # )
-
         mt_train = datasets.TranslationDataset(
+            path=constants.WMT14_EN_FR_SMALL_TRAIN,
+            exts=('.en', '.fr'),
+            fields=(src, trg)
+        )
+
+        mt_valid = datasets.TranslationDataset(
             path=constants.WMT14_EN_FR_VALID,
             exts=('.en', '.fr'),
             fields=(src, trg)
         )
+
+        print('loading vocabulary...')
+        src_vocab, trg_vocab = utils.load_torchtext_wmt_small_vocab()
+        src.vocab = src_vocab
+
+        trg.vocab = trg_vocab
+        print('loaded vocabulary')
     else:
-        mt_train, _, _ = datasets.Multi30k.splits(
+        mt_train, mt_valid, _ = datasets.Multi30k.splits(
             exts=('.en', '.de'),
             fields=(src, trg),
         )
 
-    print('loading vocabulary...')
-    src_vocab, trg_vocab = utils.load_torchtext_wmt_small_vocab()
-    src.vocab = src_vocab
+        print('loading vocabulary...')
 
-    trg.vocab = trg_vocab
-    print('loaded vocabulary')
-    # mt_dev shares the fields, so it shares their vocab objects
+        # mt_dev shares the fields, so it shares their vocab objects
+        src.build_vocab(
+            mt_train,
+            min_freq=args.torchtext_unk,
+            max_size=args.torchtext_src_max_vocab,
+        )
+
+        trg.build_vocab(
+            mt_train,
+            max_size=args.torchtext_trg_max_vocab,
+        )
+        print('loaded vocabulary')
 
     train_loader = data.BucketIterator(
-        dataset=mt_train,
+        dataset=mt_valid,
         batch_size=1,
         sort_key=lambda x: len(x.src), # data.interleave_keys(len(x.src), len(x.trg)),
         sort_within_batch=True,
