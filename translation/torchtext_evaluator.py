@@ -33,52 +33,48 @@ def eval_bleu(
        model = torch.nn.DataParallel(model, device_ids=[0, 1]).cuda()
     
     bleus = []
-    for e in range(1):
-        count = 0
-        with tqdm(train_loader, total=len(train_loader)) as pbar:
-            for i, data in enumerate(pbar):
-                if i == 0:
-                    continue
-                src, src_lengths = data.src
-                trg, trg_lengths = data.trg
+    count = 0
+    with tqdm(train_loader, total=len(train_loader)) as pbar:
+        for i, data in enumerate(pbar):
+            if i == 0:
+                continue
+            src, src_lengths = data.src
+            trg, trg_lengths = data.trg
 
-                # predicted = model.generate_max(src, src_lengths, 100, device)
-                predicted = model.slow_generate(src, src_lengths, 100, device)
-                # predicted = (torch.Tensor(src.size(0), 100).uniform_() * (len(fr_vocab) - 1)).long()
-                # predicted = predicted * 
-                # predicted = model.generate_beam(src, src_lengths, 100, 5, device)
-                pred_arr = utils.torchtext_convert_to_str(predicted.cpu().numpy(), fr_vocab)[0]
-                out_arr = utils.torchtext_convert_to_str(trg.cpu().numpy(), fr_vocab)[0]
-                pred_slim_arr = utils.get_raw_sentence(pred_arr)
-                out_slim_arr = utils.get_raw_sentence(out_arr)
-                curr_bleu = utils.compute_bleu(pred_slim_arr, out_slim_arr)
-                # print("BLEU: {}".format(
-                #     curr_bleu
-                # ))
-                bleus.append(curr_bleu)
-                # output = ' '.join(pred_slim_arr)
-                # actual_out = ' '.join(out_slim_arr)
-                # src = ' '.join(utils.torchtext_convert_to_str(src.cpu().numpy(), en_vocab)[0])
-                # print('src\n', src)
-                # print('')
-                # print('out\n',output)
-                # print('')
-                # print('trg\n', actual_out)
+            predicted = model.generate_max(src, src_lengths, 100, device)
+            # predicted = model.slow_generate(src, src_lengths, 100, device)
+            # predicted = (torch.Tensor(src.size(0), 100).uniform_() * (len(fr_vocab) - 1)).long()
+            # predicted = predicted * 
+            # predicted = model.generate_beam(src, src_lengths, 100, 5, device)
+            pred_arr = utils.torchtext_convert_to_str(predicted.cpu().numpy(), fr_vocab)[0]
+            out_arr = utils.torchtext_convert_to_str(trg.cpu().numpy(), fr_vocab)[0]
+            pred_slim_arr = utils.get_raw_sentence(pred_arr)
+            out_slim_arr = utils.get_raw_sentence(out_arr)
+            curr_bleu = utils.compute_bleu(pred_slim_arr, out_slim_arr)
+            # print("BLEU: {}".format(
+            #     curr_bleu
+            # ))
+            bleus.append(curr_bleu)
+            # output = ' '.join(pred_slim_arr)
+            # actual_out = ' '.join(out_slim_arr)
+            # src = ' '.join(utils.torchtext_convert_to_str(src.cpu().numpy(), en_vocab)[0])
+            # print('src\n', src)
+            # print('')
+            # print('out\n',output)
+            # print('')
+            # print('trg\n', actual_out)
 
-                # if (i >= 7):
-                #     print(bleus)
-                #     print(sum(bleus) / len(bleus))
-                #     return
+            # if (i >= 7):
+            #     print(bleus)
+            #     print(sum(bleus) / len(bleus))
+            #     return
 
-                count += 1
-                pbar.set_postfix(
-                    curr_bleu=curr_bleu * 100,
-                    avg_bleu=(sum(bleus) / len(bleus) * 100)
-                )
-                pbar.refresh()
- 
-        train_loader.reset()
-        valid_loader.reset()
+            count += 1
+            pbar.set_postfix(
+                curr_bleu=curr_bleu * 100,
+                avg_bleu=(sum(bleus) / len(bleus) * 100)
+            )
+            pbar.refresh()
 
 def main() -> None:
     parser = get_arg_parser()
@@ -94,33 +90,47 @@ def main() -> None:
                init_token='<sos>', eos_token='<eos>', batch_first=True)
     
     if not args.small:
-        # mt_train = datasets.TranslationDataset(
-        #     path=constants.WMT14_EN_FR_SMALL_TRAIN,
-        #     exts=('.en', '.fr'),
-        #     fields=(src, trg)
-        # )
-
         mt_train = datasets.TranslationDataset(
+            path=constants.WMT14_EN_FR_SMALL_TRAIN,
+            exts=('.en', '.fr'),
+            fields=(src, trg)
+        )
+
+        mt_valid = datasets.TranslationDataset(
             path=constants.WMT14_EN_FR_VALID,
             exts=('.en', '.fr'),
             fields=(src, trg)
         )
+
+        print('loading vocabulary...')
+        src_vocab, trg_vocab = utils.load_torchtext_wmt_small_vocab()
+        src.vocab = src_vocab
+
+        trg.vocab = trg_vocab
+        print('loaded vocabulary')
     else:
-        mt_train, _, _ = datasets.Multi30k.splits(
+        mt_train, mt_valid, _ = datasets.Multi30k.splits(
             exts=('.en', '.de'),
             fields=(src, trg),
         )
 
-    print('loading vocabulary...')
-    src_vocab, trg_vocab = utils.load_torchtext_wmt_small_vocab()
-    src.vocab = src_vocab
+        print('loading vocabulary...')
 
-    trg.vocab = trg_vocab
-    print('loaded vocabulary')
-    # mt_dev shares the fields, so it shares their vocab objects
+        # mt_dev shares the fields, so it shares their vocab objects
+        src.build_vocab(
+            mt_train,
+            min_freq=args.torchtext_unk,
+            max_size=args.torchtext_src_max_vocab,
+        )
+
+        trg.build_vocab(
+            mt_train,
+            max_size=args.torchtext_trg_max_vocab,
+        )
+        print('loaded vocabulary')
 
     train_loader = data.BucketIterator(
-        dataset=mt_train,
+        dataset=mt_valid,
         batch_size=1,
         sort_key=lambda x: len(x.src), # data.interleave_keys(len(x.src), len(x.trg)),
         sort_within_batch=True,
