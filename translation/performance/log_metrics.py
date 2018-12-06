@@ -74,7 +74,7 @@ def log(pid, poll_period=1800, log_dir=None):
             # Exit if nothing is gotten
             if gpu_res is None and cpu_res is None:
                 exit(1)
-                
+
             # log stats
             if logger is None:
                print("{},{},{},{},{}".format(cpu_per,mem_per,mem,gpu_per,gpu))
@@ -105,7 +105,7 @@ def log(pid, poll_period=1800, log_dir=None):
                     gpu,
                     timestamp,
                 )
-            time.sleep(duration)
+            time.sleep(poll_period)
     except KeyboardInterrupt:
         print()
         exit(0)
