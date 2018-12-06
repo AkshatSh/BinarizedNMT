@@ -37,5 +37,6 @@ def get_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument('--log_step', type=int, default=100, help='after how many iterations to log to tensor logs')
     parser.add_argument('--should_save', type=bool, default=True, help='should create and save files')
     parser.add_argument('--dataset', type=str, default='Multi30k', help='the dataset to use (Multi30k, IWSLT, WMT)')
+    parser.add_argument('--binarize', action='store_true', help='should binarize the model being used')
 
     return parser

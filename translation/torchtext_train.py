@@ -20,6 +20,10 @@ from models import (
     SimpleLSTMModel,
 )
 
+from models.components.binarization import (
+    Binarize
+)
+
 from train_args import get_arg_parser
 import constants
 from vocab import Vocabulary, load_vocab
@@ -32,10 +36,13 @@ def eval_model(
     trg_vocab: Vocab,
     model: nn.Module,
     valid_loader: d.BatchedIterator,
+    binarized_model: object = None,
 ) -> tuple:
     model.eval()
     total_loss = 0.0
     total_ppl = 0.0
+    if binarized_model is not None:
+        binarized_model.binarization()
     with torch.no_grad():
         for i, data in enumerate(tqdm(valid_loader)):
             src, src_lengths = data.src
@@ -74,6 +81,7 @@ def train(
     batch_size: int,
     log_step: int,
     should_save: bool,
+    binarize: bool,
 ) -> None:
     logger = Logger(log_dir)
     model = model.to(device)
@@ -89,6 +97,12 @@ def train(
         optim = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     else:
         raise Exception("Illegal Optimizer {}".format(optimizer))
+    
+    if binarize:
+        print('binarizing model')
+        binarized_model = Binarize(model)
+    else:
+        binarized_model = None
 
     nan_count = 0
     for e in range(epochs):
@@ -96,6 +110,9 @@ def train(
         count = 0
         with tqdm(train_loader, total=len(train_loader)) as pbar:
             for i, data in enumerate(pbar):
+                if binarize:
+                    binarized_model.binarization()
+
                 src, src_lengths = data.src
                 trg, trg_lengths = data.trg
                 # feed everything into model
@@ -139,6 +156,10 @@ def train(
                     )
                     return
                 loss.backward()
+
+                if binarize:
+                    binarized_model.restore()
+                    binarized_model.updateGradients()
 
                 # TODO: try gradient clipping? for exploding gradient
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
@@ -186,7 +207,7 @@ def train(
                     os.path.join(save_dir, model_name, model_file_name)
                 )
             if valid_loader is not None:
-                valid_loss, valid_ppl = eval_model(en_vocab, fr_vocab, model, valid_loader)
+                valid_loss, valid_ppl = eval_model(en_vocab, fr_vocab, model, valid_loader, binarized_model)
                 print("Valid loss avg : {} | Valid Perplexity: {}".format(valid_loss, valid_ppl))
 
 def main() -> None:
@@ -270,7 +291,7 @@ def main() -> None:
     )
 
     model = utils.build_model(parser, src.vocab, trg.vocab)
-    # model.load_state_dict(torch.load('saved_models/conv_test_large/model_epoch_9_final'))
+    model.load_state_dict(torch.load('saved_models/conv_test_iwslt/model_epoch_49_final'))
 
     print('using model...')
     print(model)
@@ -303,6 +324,7 @@ def main() -> None:
         batch_size=args.batch_size,
         log_step=args.log_step,
         should_save=args.should_save,
+        binarize=args.binarize,
     )
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ from models import (
     AttentionRNN,
     AttentionQRNN,
     ConvSeq2Seq,
+    ConvS2S,
     SimpleLSTMModel,
 )
 
@@ -140,9 +141,9 @@ def build_model(
             teacher_student_ratio=args.teacher_student_ratio,
         )
     elif args.model_type == 'ConvSeq2Seq':
-        ConvSeq2Seq.add_args(parser)
+        ConvS2S.add_args(parser)
         args = parser.parse_args()
-        return ConvSeq2Seq.build_model(
+        return ConvS2S.build_model(
             src_vocab=en_vocab,
             trg_vocab=fr_vocab,
             max_positions=args.max_positions,
@@ -156,6 +157,7 @@ def build_model(
             decoder_attention=args.decoder_attention,
             share_embed=args.share_embed,
             decoder_positional_embed=args.decoder_positional_embed,
+            binarize=args.binarize,
         )
     else:
         raise Exception(
