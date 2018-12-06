@@ -69,21 +69,21 @@ class BinConv1d(nn.Module):
         input_channels: int,
         output_channels: int,
         kernel_size: int=-1,
-        stride: int=-1,
+        stride: int=1,
         padding: int=-1,
         dropout: float=0,
     ):
         super(BinConv1d, self).__init__()
         self.layer_type = 'BinConv1d'
-        self.kernel_size = kernel_size
         self.stride = stride
-        self.padding = padding
         self.dropout_ratio = dropout
 
         if dropout!=0:
             self.dropout = nn.Dropout(dropout)
         self.conv = nn.Conv1d(input_channels, output_channels,
                 kernel_size=kernel_size, stride=stride, padding=padding)
+        self.kernel_size = self.conv.kernel_size
+        self.padding = self.conv.padding
         self.relu = nn.ReLU(inplace=True)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
