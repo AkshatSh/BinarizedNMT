@@ -6,6 +6,7 @@ from torch import nn
 import torch.nn.functional as F
 import random
 import argparse
+from torchqrnn import QRNN
 
 from models.EncoderDecoder import (
     EncoderModel,
@@ -25,7 +26,7 @@ from constants import (
     PAD_TOKEN,
 )
 
-class EncoderRNN(EncoderModel):
+class EncoderQRNN(EncoderModel):
     def __init__(
         self,
         src_vocab: Vocabulary,
@@ -33,7 +34,7 @@ class EncoderRNN(EncoderModel):
         num_layers: int,
         dropout: float,
     ):
-        super(EncoderRNN, self).__init__()
+        super(EncoderQRNN, self).__init__()
         self.input_size = len(src_vocab)
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -43,12 +44,10 @@ class EncoderRNN(EncoderModel):
             len(src_vocab),
             hidden_size,
         )
-        self.lstm = nn.GRU(
+        self.lstm = QRNN(
             input_size=hidden_size,
             hidden_size=hidden_size,
             num_layers=num_layers,
-            bidirectional=True,
-            batch_first=True,
         )
     
     def forward(
@@ -59,16 +58,19 @@ class EncoderRNN(EncoderModel):
     ) -> torch.Tensor:
         embedded = self.embedding(src_tokens)
         # print(embedded.shape)
-        packed = nn.utils.rnn.pack_padded_sequence(embedded, src_lengths, batch_first=True)
-        outputs, hidden = self.lstm(packed, hidden)
-        outputs, outputs_length = nn.utils.rnn.pad_packed_sequence(outputs, batch_first=True)
+        #packed = nn.utils.rnn.pack_padded_sequence(embedded, src_lengths, batch_first=True)
+        #packed = packed.t()
+        embedded = embedded.transpose(0, 1)
+        outputs, hidden = self.lstm(embedded, hidden)
+        outputs = outputs.transpose(0, 1)
+        #outputs, outputs_length = nn.utils.rnn.pad_packed_sequence(outputs, batch_first=True)
 
         # sum up bidirectional outputs to keep hidden size the same
-        outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:]
+        #outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:]
         # print('output: ', outputs.shape)
         return outputs, hidden
 
-class AttentionDecoderRNN(DecoderModel):
+class AttentionDecoderQRNN(DecoderModel):
     def __init__(
         self,
         trg_vocab: Vocabulary,
@@ -77,7 +79,7 @@ class AttentionDecoderRNN(DecoderModel):
         dropout: float,
         teacher_student_ratio: float,
     ):
-        super(AttentionDecoderRNN, self).__init__()
+        super(AttentionDecoderQRNN, self).__init__()
 
         self.hidden_size = hidden_size
         self.output_size = len(trg_vocab)
@@ -96,12 +98,10 @@ class AttentionDecoderRNN(DecoderModel):
 
         self.attn = AttentionModule('general', hidden_size)
 
-        self.lstm = nn.GRU(
+        self.lstm = QRNN(
             input_size=hidden_size * 2,
             hidden_size=hidden_size,
             num_layers=num_layers,
-            bidirectional=False,
-            batch_first=True,
         )
 
         self.out = nn.Linear(
@@ -165,9 +165,13 @@ class AttentionDecoderRNN(DecoderModel):
             # encoder_outputs: (batch, seq_len, dim)
             # attn_weights = (batch, seq_len)
             context = attn_weights.transpose(1,2).bmm(encoder_outputs)
+            #print(encoder_outputs.shape)
 
+            #print(embedded_prev_tokens.shape, context.shape)
             lstm_input = torch.cat((embedded_prev_tokens[:, i:i+1, :], context), dim=2)
+            lstm_input = lstm_input.transpose(0, 1)
             output, last_hidden = self.lstm(lstm_input, last_hidden)
+            output = output.transpose(0, 1)
             decoder_outputs.append(output)
         decoder_outputs = torch.cat(decoder_outputs, dim=1)
         out = self.out(decoder_outputs)
@@ -222,14 +226,14 @@ def build_model(
     decoder_num_layers: int,
     teacher_student_ratio: float,
 ) -> nn.Module:
-    encoder = EncoderRNN(
+    encoder = EncoderQRNN(
         src_vocab=src_vocab,
         hidden_size=encoder_hidden_dim,
         num_layers=encoder_num_layers,
         dropout=encoder_dropout,
     )
 
-    decoder = AttentionDecoderRNN(
+    decoder = AttentionDecoderQRNN(
         trg_vocab=trg_vocab,
         hidden_size=decoder_hidden_dim,
         num_layers=decoder_num_layers,

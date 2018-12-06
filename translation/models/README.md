@@ -101,3 +101,7 @@ def add_args(parser: argparse.ArgumentParser) -> None:
     '''
     return None
 ```
+
+## Notes
+
+In order to get the QRNN model working in env/lib/python3.6/site-packages/pynvrtc/interface.py line 54 was slightly modified. There is some issue where the input, s, has already been converted to byte form so it does not have the encode() method. Therefore the the code is modified so that s is just returned.

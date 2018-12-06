@@ -17,6 +17,7 @@ import constants
 
 from models import (
     AttentionRNN,
+    AttentionQRNN,
     ConvSeq2Seq,
     SimpleLSTMModel,
 )
@@ -110,6 +111,22 @@ def build_model(
         AttentionRNN.add_args(parser)
         args = parser.parse_args()
         return AttentionRNN.build_model(
+            src_vocab=en_vocab,
+            trg_vocab=fr_vocab,
+            encoder_embed_dim=args.encoder_embed_dim,
+            encoder_hidden_dim=args.encoder_hidden_dim,
+            encoder_dropout=args.encoder_dropout,
+            encoder_num_layers=args.encoder_layers,
+            decoder_embed_dim=args.decoder_embed_dim,
+            decoder_hidden_dim=args.decoder_hidden_dim,
+            decoder_dropout=args.decoder_dropout,
+            decoder_num_layers=args.decoder_layers,
+            teacher_student_ratio=args.teacher_student_ratio,
+        )
+    elif args.model_type == 'AttentionQRNN':
+        AttentionQRNN.add_args(parser)
+        args = parser.parse_args()
+        return AttentionQRNN.build_model(
             src_vocab=en_vocab,
             trg_vocab=fr_vocab,
             encoder_embed_dim=args.encoder_embed_dim,

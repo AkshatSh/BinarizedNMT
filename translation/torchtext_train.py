@@ -14,6 +14,7 @@ import math
 
 from models import (
     AttentionRNN,
+    AttentionQRNN,
     # ConvSeq2Seq,
     ConvS2S,
     SimpleLSTMModel,
