@@ -52,3 +52,35 @@ class Binarize(Object):
     ):
         super(Binarize, self).__init__()
         self.model = model
+
+        # get the number of conv1d modules
+        conv1d_count = 0
+        for m in model.modules():
+            if isinstance(m, nn.Conv1d):
+                counv1d_count += 1
+        
+        start_range = 1
+        end_range - conv1d_count - 1
+        self.bin_range = [i for i in range(start_range, end_range)]
+        self.num_params = len(self.bin_range)
+        self.saved_params = []
+        self.target_params = []
+        self.target_modules = []
+        for m in model.modules:
+            if isinstance(m, nn.Conv1d):
+                # save the weight
+                saved_weight = m.weight.data.clone()
+                self.saved_params.append(saved_weight)
+                self.target_modules.append(m.weight)
+    
+
+    def binarization(self):
+        pass
+    
+    def restore(self):
+        pass
+    
+    def updateGradients(self):
+        pass
+
+
