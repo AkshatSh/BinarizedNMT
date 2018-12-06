@@ -49,6 +49,8 @@ def get_gpumem(pid):
     pid_tag = "python/" + str(pid)
     gpu_per, gpu = None, None
     for item in out.split('\n'):
+        if item is None:
+            return None
         if pid_tag in item:
             try:
                 gpu_per = [int(s) for s in item.split("|")[1].split(",")[1].split() if s.isdigit()][0]
