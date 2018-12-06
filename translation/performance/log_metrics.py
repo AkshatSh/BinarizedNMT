@@ -49,7 +49,7 @@ def get_gpumem(pid):
                 gpu = (re.search(r'\((.*?)\)', item).group(1))
             except:
                 pass
-    return (gpu_per, gpu*(2**20)) # GPU memory is in term of Mibibytes (2^20)
+    return (gpu_per, int(gpu)*(2**20)) # GPU memory is in term of Mibibytes (2^20)
 
 def log(pid, poll_period=1800, log_dir=None):
     logger = None
@@ -77,7 +77,7 @@ def log(pid, poll_period=1800, log_dir=None):
 
             # log stats
             if logger is None:
-               print("{},{},{},{},{}".format(cpu_per,mem_per,mem,gpu_per,gpu))
+               print("{},{},{},{},{}\n".format(cpu_per,mem_per,mem,gpu_per,gpu))
             else:
                 timestamp = time.time()
                 logger.scalar_summary(
