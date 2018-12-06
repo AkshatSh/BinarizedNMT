@@ -23,6 +23,10 @@ from models.components.fairseq.conv_utils import (
     Projection,
 )
 
+from models.components.binarized_convolution import (
+    BinConv1d,
+)
+
 from models.EncoderDecoder import (
     EncoderModel,
     DecoderModel,
@@ -77,6 +81,7 @@ class ConvEncoder(EncoderModel):
         max_positions: int,
         convolution_spec: ConvSpecType,
         dropout: float,
+        binarize: bool,
     ):
         '''
         Arguments:
@@ -115,6 +120,8 @@ class ConvEncoder(EncoderModel):
 
         layer_in_channels = [in_channels]
 
+        conv_type = Conv1d if not binarize else BinConv1d
+
         for i, (out_channels, kernel_width, residual) in enumerate(self.convolution_spec):
             if residual == 0:
                 residual_dim = out_channels
@@ -136,7 +143,7 @@ class ConvEncoder(EncoderModel):
             
             # create a convolution for the layer
             self.convolutions.append(
-                Conv1d(
+                conv_type(
                     in_channels,
                     out_channels * 2,
                     kernel_width,
@@ -258,6 +265,7 @@ class ConvDecoder(DecoderModel):
         dropout: float,
         share_embed: bool,
         positional_embedding: bool,
+        binarize: bool,
     ):
         super(ConvDecoder, self).__init__()
         self.trg_dictionary = trg_dictionary
@@ -294,6 +302,8 @@ class ConvDecoder(DecoderModel):
 
         in_channels = self.convolution_spec[0][0]
 
+        conv_type = Conv1d if not binarize else BinConv1d
+
 
         self.fc1 = Linear(embed_dim, in_channels, dropout=dropout)
         self.projections = nn.ModuleList()
@@ -321,8 +331,9 @@ class ConvDecoder(DecoderModel):
                 padding = 0
             
             # create a convolution for the layer
+            print('loading 1dconv')
             self.convolutions.append(
-                Conv1d(
+                conv_type(
                     in_channels,
                     out_channels * 2,
                     kernel_width,
@@ -451,13 +462,16 @@ def build_model(
     decoder_attention: bool,
     share_embed: bool,
     decoder_positional_embed: bool,
+    binarize: bool,
 ) -> nn.Module:
+    print("calling")
     encoder = ConvEncoder(
         src_vocab=src_vocab,
         embedding_dim=encoder_embed_dim,
         max_positions=max_positions,
         convolution_spec=encoder_conv_spec,
         dropout=encoder_dropout,
+        binarize=binarize,
     )
 
     decoder = ConvDecoder(
@@ -470,6 +484,7 @@ def build_model(
         dropout=decoder_dropout,
         share_embed=share_embed,
         positional_embedding=decoder_positional_embed,
+        binarize=binarize,
     )
 
     encoder.num_attention_layers = sum(layer is not None for layer in decoder.attentions)
