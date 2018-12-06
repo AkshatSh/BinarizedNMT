@@ -89,30 +89,31 @@ def main() -> None:
     trg = data.Field(include_lengths=True,
                init_token='<sos>', eos_token='<eos>', batch_first=True)
     
-    if not args.small:
+    if args.dataset == 'WMT':
         mt_train = datasets.TranslationDataset(
             path=constants.WMT14_EN_FR_SMALL_TRAIN,
             exts=('.en', '.fr'),
             fields=(src, trg)
         )
-
-        mt_valid = datasets.TranslationDataset(
-            path=constants.WMT14_EN_FR_VALID,
-            exts=('.en', '.fr'),
-            fields=(src, trg)
-        )
-
-        print('loading vocabulary...')
         src_vocab, trg_vocab = utils.load_torchtext_wmt_small_vocab()
         src.vocab = src_vocab
 
         trg.vocab = trg_vocab
-        print('loaded vocabulary')
+
+        mt_valid = None
     else:
-        mt_train, mt_valid, _ = datasets.Multi30k.splits(
+        if args.dataset == 'Multi30k':
+            mt_train, mt_valid, _ = datasets.Multi30k.splits(
+                exts=('.en', '.de'),
+                fields=(src, trg),
+            )
+        elif args.dataset == 'IWSLT':
+            mt_train, mt_valid, _ = datasets.IWSLT.splits(
             exts=('.en', '.de'),
-            fields=(src, trg),
-        )
+                fields=(src, trg), 
+            )
+        else:
+            raise Exception("Uknown dataset: {}".format(args.dataset))
 
         print('loading vocabulary...')
 
