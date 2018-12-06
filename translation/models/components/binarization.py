@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 
-class Binarize(Object):
+class Binarize(object):
     '''
     This object wraps the model passed in, to allow binary network training
     as described in the xnor paper: Algorithm 1
@@ -38,7 +38,8 @@ class Binarize(Object):
             binarized_model.binarization()
 
             # compute loss
-            model.loss(...)
+            loss = model.loss(...)
+            loss.backward()
 
             binarized_model.restore()
             binarized_model.updateGradients()
@@ -57,30 +58,83 @@ class Binarize(Object):
         conv1d_count = 0
         for m in model.modules():
             if isinstance(m, nn.Conv1d):
-                counv1d_count += 1
+                conv1d_count += 1
         
         start_range = 1
-        end_range - conv1d_count - 1
+        end_range = conv1d_count - 1
         self.bin_range = [i for i in range(start_range, end_range)]
-        self.num_params = len(self.bin_range)
+        self.num_of_params = len(self.bin_range)
         self.saved_params = []
         self.target_params = []
         self.target_modules = []
-        for m in model.modules:
+        for m in model.modules():
             if isinstance(m, nn.Conv1d):
                 # save the weight
                 saved_weight = m.weight.data.clone()
                 self.saved_params.append(saved_weight)
                 self.target_modules.append(m.weight)
+
+                # weight has the shape:
+                # (out_channel, in_channel, kernel_size)
     
+    def meanCenterConvParams(self):
+        for index in range(self.num_of_params):
+            s = self.target_modules[index].data.size()
+            negMean = self.target_modules[index].data.mean(1, keepdim=True).\
+                    mul(-1).expand_as(self.target_modules[index].data)
+            self.target_modules[index].data = self.target_modules[index].data.add(negMean)
+    
+    def clampConvParams(self):
+        for index in range(self.num_of_params):
+            self.target_modules[index].data = \
+                    self.target_modules[index].data.clamp(-1.0, 1.0)
+    
+    def save_params(self):
+        for index in range(self.num_of_params):
+            self.saved_params[index].copy_(self.target_modules[index].data)
+    
+    def binarize_conv_params(self):
+        for index in range(self.num_of_params):
+            # n = kernel_size * in_channels
+            curr_module = self.target_modules[index].data
+            n = curr_module[0].nelement()
+            s = curr_module.size()
+
+            # abs mean normalizes every filter and divides by n to get the 
+            # normalized mean
+            abs_mean = curr_module.norm(1, 2, keepdim=True).sum(1, keepdim=True).div(n).expand(s)
+
+            # binarized weight is
+            # sign(W) * abs_mean
+            self.target_modules[index].data = curr_module.sign().mul(abs_mean)
 
     def binarization(self):
-        pass
+        self.meanCenterConvParams()
+        self.clampConvParams()
+        self.save_params()
+        self.binarize_conv_params()
     
     def restore(self):
-        pass
+        for index in range(self.num_of_params):
+            self.target_modules[index].data.copy_(self.saved_params[index])
     
     def updateGradients(self):
-        pass
+        for index in range(self.num_of_params):
+            curr_module = self.target_modules[index].data
+            n = curr_module[0].nelement()
+            s = curr_module.size()
+
+            m = curr_module.norm(1, 2, keepdim=True).sum(1, keepdim=True).div(n).expand(s)
+            m[curr_module.lt(-1.0)] = 0 
+            m[curr_module.gt(1.0)] = 0
+
+            m = m.mul(self.target_modules[index].grad.data)
+            m_add = curr_module.sign().mul(self.target_modules[index].grad.data)
+            m_add = m_add.sum(2, keepdim=True)\
+                    .sum(1, keepdim=True).div(n).expand(s)
+            m_add = m_add.mul(curr_module.sign())
+
+            self.target_modules[index].grad.data = m.add(m_add).mul(1.0-1.0/s[1]).mul(n)
+
 
 
