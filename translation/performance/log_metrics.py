@@ -49,7 +49,7 @@ def get_gpumem(pid):
                 gpu = (re.search(r'\((.*?)\)', item).group(1))
             except:
                 pass
-    return (gpu_per, int(gpu)*(2**20)) # GPU memory is in term of Mibibytes (2^20)
+    return (gpu_per, int(gpu[:len(gpu)-1])*(2**20)) # GPU memory is in term of Mibibytes (2^20)
 
 def log(pid, poll_period=1800, log_dir=None):
     logger = None
