@@ -15,6 +15,9 @@ GPU_PER = "Gpu"
 GPU_MEM = "Used GPU Memory"
 
 def get_cpumem(pid):
+    """
+    run the ps -ux command as a subprocess and then grab CPU%, MEM%, and MEM in bytes
+    """
     try:
         process = subprocess.Popen(['ps', 'ux'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     except e:
@@ -26,12 +29,15 @@ def get_cpumem(pid):
     d = [i for i in out.split('\n') if len(i) > 0 and i.split()[1] == str(pid)]
     if d:
         # (CPU%, MEM%, MEM)
-        # MEM is in term of Kilobytes (2^10)
+        # MEM is in term of Kilobytes (1000)
         return (float(d[0].split()[2]), float(d[0].split()[3]), int(d[0].split()[5]) * 1000)
     else:
         return None
 
 def get_gpumem(pid):
+    """
+    run the gpustat -cp command as a subprocess and then grab GPU%, GPU in bytes
+    """
     try:
         process = subprocess.Popen(['gpustat', '-cp'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     except:
@@ -49,9 +55,12 @@ def get_gpumem(pid):
                 gpu = (re.search(r'\((.*?)\)', item).group(1))
             except:
                 pass
-    return (gpu_per, int(gpu[:len(gpu)-1])*(2**20)) # GPU memory is in term of Mibibytes (2^20)
+    return (gpu_per, int(gpu[:len(gpu)-1])*(2**20)) # GPU memory is in term of Mebibytes (2^20)
 
 def log(pid, poll_period=1800, log_dir=None):
+    """
+    Method to log CPU and GPU and Memory contraints of process pid
+    """
     logger = None
     if log_dir is None:
         print("%CPU,%MEM,MEM,%GPU,GPU")
