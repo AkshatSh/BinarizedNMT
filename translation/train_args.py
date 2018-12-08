@@ -38,5 +38,6 @@ def get_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument('--should_save', type=bool, default=True, help='should create and save files')
     parser.add_argument('--dataset', type=str, default='Multi30k', help='the dataset to use (Multi30k, IWSLT, WMT)')
     parser.add_argument('--binarize', action='store_true', help='should binarize the model being used')
+    parser.add_argument('--gradient_clip', type=float, default=1.0, help='The gradient clipping threshold')
 
     return parser
