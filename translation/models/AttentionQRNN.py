@@ -6,7 +6,12 @@ from torch import nn
 import torch.nn.functional as F
 import random
 import argparse
-from torchqrnn import QRNN
+
+try:
+    from torchqrnn import QRNN
+except:
+    # to stop python 3.7.x breaking
+    QRNN = None
 
 from models.EncoderDecoder import (
     EncoderModel,
