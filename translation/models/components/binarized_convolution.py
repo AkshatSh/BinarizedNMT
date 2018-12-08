@@ -8,6 +8,8 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 
+USE_SIMPLE = False
+
 class BinActive(torch.autograd.Function):
     '''
     Binarize the input activations and calculate the mean across channel dimension.
@@ -84,12 +86,57 @@ class BinConv1d(nn.Module):
                 kernel_size=kernel_size, stride=stride, padding=padding)
         self.kernel_size = self.conv.kernel_size
         self.padding = self.conv.padding
-        self.relu = nn.ReLU(inplace=True)
+        # self.relu = nn.ReLU(inplace=True)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x, mean = BinActive()(x)
         if self.dropout_ratio!=0:
             x = self.dropout(x)
         x = self.conv(x)
-        x = self.relu(x)
+        # x = self.relu(x)
         return x
+
+class BinConvTBC(nn.Module):
+    def __init__(
+        self,
+        input_channels: int,
+        output_channels: int,
+        kernel_size: int=-1,
+        stride: int=1,
+        padding: int=-1,
+        dropout: float=0,
+    ):
+        super(BinConvTBC, self).__init__()
+        '''
+        Implementation of binary convolution using TBC (time batch channel)
+        as compared to 1d convolutions using BCT (batch channel time)
+        '''
+        self.layer_type = 'BinConvTBC'
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = _single(kernel_size)
+        self.padding = _single(padding)
+
+        self.weight = torch.nn.Parameter(torch.Tensor(
+            self.kernel_size[0], in_channels, out_channels))
+        self.bias = torch.nn.Parameter(torch.Tensor(out_channels))
+
+        if not USE_SIMPLE:
+            self.special_init()
+    
+    def special_init(self):
+        nn.init.normal_(self.weight, mean=0, std=math.sqrt((1 - dropout) / in_features))
+        nn.init.constant_(self.bias, 0)
+        return nn.utils.weight_norm(self)
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x, mean = BinActive()(x)
+        return torch.conv_tbc(x.contiguous(), self.weight, self.bias, self.padding[0])
+    
+    def __repr__(self):
+        s = ('{name}({in_channels}, {out_channels}, kernel_size={kernel_size}'
+             ', padding={padding}')
+        if self.bias is None:
+            s += ', bias=False'
+        s += ')'
+        return s.format(name=self.__class__.__name__, **self.__dict__)
