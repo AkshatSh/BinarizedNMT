@@ -86,6 +86,21 @@ def compute_bleu(predicted: List[str], expected: List[str]) -> float:
     '''
     return nltk.translate.bleu_score.sentence_bleu([expected], predicted)
 
+def get_num_parameters(model: nn.Module) -> int:
+
+    params=[
+        param for param in model.parameters()
+    ]
+    # attention RNN: 26,409,236
+    # convs2s: 36,301,076
+    size = 0
+    for param in params:
+        curr_size = 1
+        for s in param.shape:
+            curr_size *= s
+        size += curr_size
+    return size
+
 def build_model(
     parser: argparse.ArgumentParser,
     en_vocab: Vocabulary,
