@@ -15,6 +15,10 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 
+from .binarized_convolution import (
+    BinConv1d,
+)
+
 class Binarize(object):
     '''
     This object wraps the model passed in, to allow binary network training
@@ -69,16 +73,15 @@ class Binarize(object):
         self.target_modules = []
         index = 0
         for m in model.modules():
-            if isinstance(m, nn.Conv1d):
-                if index != -1:
-                    # save the weight
-                    saved_weight = m.weight.data.clone()
-                    self.saved_params.append(saved_weight)
-                    self.target_modules.append(m.weight)
+            if isinstance(m, BinConv1d):
+                # save the weight
+                m = m.conv
+                saved_weight = m.weight.data.clone()
+                self.saved_params.append(saved_weight)
+                self.target_modules.append(m.weight)
 
-                    # weight has the shape:
-                    # (out_channel, in_channel, kernel_size)
-                index += 1
+                # weight has the shape:
+                # (out_channel, in_channel, kernel_size)
         print("Targeting {} convolutions.".format(len(self.target_modules)))
     
     def meanCenterConvParams(self):
