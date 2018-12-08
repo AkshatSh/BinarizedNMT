@@ -23,6 +23,10 @@ from models.components.fairseq.conv_utils import (
     Projection,
 )
 
+from models.components.binarized_convolution import (
+    BinConv1d,
+)
+
 from models.EncoderDecoder import (
     EncoderModel,
     DecoderModel,
@@ -77,6 +81,7 @@ class ConvEncoder(EncoderModel):
         max_positions: int,
         convolution_spec: ConvSpecType,
         dropout: float,
+        binarize: bool,
     ):
         '''
         Arguments:
@@ -115,6 +120,8 @@ class ConvEncoder(EncoderModel):
 
         layer_in_channels = [in_channels]
 
+        conv_type = Conv1d if not binarize else BinConv1d
+
         for i, (out_channels, kernel_width, residual) in enumerate(self.convolution_spec):
             if residual == 0:
                 residual_dim = out_channels
@@ -136,7 +143,7 @@ class ConvEncoder(EncoderModel):
             
             # create a convolution for the layer
             self.convolutions.append(
-                Conv1d(
+                conv_type(
                     in_channels,
                     out_channels * 2,
                     kernel_width,
@@ -171,7 +178,7 @@ class ConvEncoder(EncoderModel):
         x =  self.fc1(x)
 
         # a mask over the padding index
-        encoder_padding_mask = src_tokens.eq(self.padding_idx).t()
+        encoder_padding_mask = src_tokens.eq(self.padding_idx)
         if not encoder_padding_mask.any():
             encoder_padding_mask = None
 
@@ -196,8 +203,8 @@ class ConvEncoder(EncoderModel):
                 residual = proj(residual) if proj else residual
             
             # zero out all the padded indexes using the precomputed mask
-            # if encoder_padding_mask is not None:
-            #    x = x.masked_fill(encoder_padding_mask.unsqueeze(-1), 0)
+            if encoder_padding_mask is not None:
+                x = x.masked_fill(encoder_padding_mask.unsqueeze(1), 0)
             
             # TODO: is this dropout necessary? can the both be applied
             # at the same time
@@ -217,6 +224,8 @@ class ConvEncoder(EncoderModel):
             
             # Apply a gated linear unit after each layer
             x = F.glu(x, dim=1)
+            # x = F.relu(x)
+            # x = F.relu(x[:, :x.shape[1] // 2, :] + x[:,x.shape[1] // 2:, :])
 
             if residual is not None:
                 # connect with residual layer
@@ -230,12 +239,12 @@ class ConvEncoder(EncoderModel):
 
         x = self.fc2(x)
         if encoder_padding_mask is not None:
-            encoder_padding_mask = encoder_padding_mask.t()
+            # encoder_padding_mask = encoder_padding_mask.transpose(1,2)
             x = x.masked_fill(encoder_padding_mask.unsqueeze(-1), 0)
         
         # TODO: why????
         # scale gradients (this only affects backward, not forward)
-        x = GradMultiply.apply(x, 1.0 / (2.0 * self.num_attention_layers))
+        # x = GradMultiply.apply(x, 1.0 / (2.0 * self.num_attention_layers))
 
         
         # add output to input embedding for attention
@@ -258,6 +267,7 @@ class ConvDecoder(DecoderModel):
         dropout: float,
         share_embed: bool,
         positional_embedding: bool,
+        binarize: bool,
     ):
         super(ConvDecoder, self).__init__()
         self.trg_dictionary = trg_dictionary
@@ -294,6 +304,8 @@ class ConvDecoder(DecoderModel):
 
         in_channels = self.convolution_spec[0][0]
 
+        conv_type = Conv1d if not binarize else BinConv1d
+
 
         self.fc1 = Linear(embed_dim, in_channels, dropout=dropout)
         self.projections = nn.ModuleList()
@@ -321,8 +333,9 @@ class ConvDecoder(DecoderModel):
                 padding = 0
             
             # create a convolution for the layer
+            print('loading 1dconv')
             self.convolutions.append(
-                Conv1d(
+                conv_type(
                     in_channels,
                     out_channels * 2,
                     kernel_width,
@@ -407,13 +420,15 @@ class ConvDecoder(DecoderModel):
             if conv.padding[0] > 0:
                 x = x[:, :-conv.padding[0], :]  # remove future timestamps
             x = F.glu(x, dim=2)
+            #print(x.shape)
+            # x = F.relu(x[:, :, :x.shape[2] // 2] + x[:, :, x.shape[2] // 2:])
 
             # attention
             if attn is not None:
                 # TODO: transpose?
                 # x = x.transpose(0, 1) if intermediate_state is None else x
 
-                x, attn_scores = attn(x, target_embedding, (encoder_a, encoder_b))
+                x, attn_scores = attn(x, target_embedding, (encoder_a, encoder_b), encoder_padding_mask)
                 if not self.training and self.need_attn:
                     attn_scores = attn_scores / num_attn_layers
                     if avg_attn_scores is None:
@@ -434,6 +449,7 @@ class ConvDecoder(DecoderModel):
         x = self.fc2(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.fc3(x)
+        x = F.log_softmax(x, dim=2)
 
         return x, None
 
@@ -451,13 +467,16 @@ def build_model(
     decoder_attention: bool,
     share_embed: bool,
     decoder_positional_embed: bool,
+    binarize: bool,
 ) -> nn.Module:
+    print("calling")
     encoder = ConvEncoder(
         src_vocab=src_vocab,
         embedding_dim=encoder_embed_dim,
         max_positions=max_positions,
         convolution_spec=encoder_conv_spec,
         dropout=encoder_dropout,
+        binarize=binarize,
     )
 
     decoder = ConvDecoder(
@@ -470,6 +489,7 @@ def build_model(
         dropout=decoder_dropout,
         share_embed=share_embed,
         positional_embedding=decoder_positional_embed,
+        binarize=binarize,
     )
 
     encoder.num_attention_layers = sum(layer is not None for layer in decoder.attentions)
@@ -488,6 +508,7 @@ def get_default_conv_spec() -> ConvSpecType:
     # Above architecture experiences exploding gradients
     
     convs = '[(256, 3, 1)] * 4'
+    bin_conv = '[(512, 3, 1)] * 4'
     # convs = '[(256, 3, 1)] * 2 + [(512, 3, 1)] * 2'
 
     # convs = '[(512, 3, 1)] * 2 + [(1024, 3, 1)] * 2' # + [(2048, 1, 1)] * 2'
@@ -496,7 +517,7 @@ def get_default_conv_spec() -> ConvSpecType:
     # above architecture experiences exploding gradients
     return eval(convs)
 
-def add_args(parser: argparse.ArgumentParser) -> None:
+def default_args(parser: argparse.ArgumentParser) -> None:
     # model hyper parameters
     parser.add_argument('--max_positions', type=int, default=1024, help='the maximum positions for hte positional embedding')
 
@@ -523,3 +544,35 @@ def add_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--decoder_attention', type=bool, default=True, help='whether to use attention for the decoder')
     parser.add_argument('--share_embed', type=bool, default=False, help='whether to share the embedding layer')
     parser.add_argument('--decoder_positional_embed', type=bool, default=True, help='whether to use the positional embeddings')
+
+def multi30k_args(parser: argparse.ArgumentParser) -> None:
+    # model hyper parameters
+    parser.add_argument('--max_positions', type=int, default=1024, help='the maximum positions for the positional embedding')
+
+    # encoder hyper parameters
+    parser.add_argument('--encoder_embed_dim', type=int, default=256, help='the embedding dimension for the encoder')
+    parser.add_argument(
+        '--encoder_conv_spec', 
+        type=ConvSpecType,
+        default=get_default_conv_spec(),
+        help='convolutional spec for the encoder',
+    )
+    parser.add_argument('--encoder_dropout', type=float, default=0.1, help='dropout for the encoder')
+
+    # decoder hyper parameters
+    parser.add_argument('--decoder_embed_dim', type=int, default=256, help='the decoder embedding dimension')
+    parser.add_argument(
+        '--decoder_conv_spec', 
+        type=ConvSpecType,
+        default=get_default_conv_spec(),
+        help='convolutional spec for the encoder',
+    )
+    parser.add_argument('--decoder_out_embed_dim', type=int, default=256, help='the output embedding dimension')
+    parser.add_argument('--decoder_dropout', type=float, default=0.1, help='dropout for the decoder')
+    parser.add_argument('--decoder_attention', type=bool, default=True, help='whether to use attention for the decoder')
+    parser.add_argument('--share_embed', type=bool, default=False, help='whether to share the embedding layer')
+    parser.add_argument('--decoder_positional_embed', type=bool, default=True, help='whether to use the positional embeddings')
+
+def add_args(parser: argparse.ArgumentParser) -> None:
+    multi30k_args(parser)
+    # default_args(parser)

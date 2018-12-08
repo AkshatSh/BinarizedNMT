@@ -19,6 +19,7 @@ from models import (
     AttentionRNN,
     AttentionQRNN,
     ConvSeq2Seq,
+    ConvS2S,
     SimpleLSTMModel,
 )
 
@@ -85,6 +86,21 @@ def compute_bleu(predicted: List[str], expected: List[str]) -> float:
     '''
     return nltk.translate.bleu_score.sentence_bleu([expected], predicted)
 
+def get_num_parameters(model: nn.Module) -> int:
+
+    params=[
+        param for param in model.parameters()
+    ]
+    # attention RNN: 26,409,236
+    # convs2s: 36,301,076
+    size = 0
+    for param in params:
+        curr_size = 1
+        for s in param.shape:
+            curr_size *= s
+        size += curr_size
+    return size
+
 def build_model(
     parser: argparse.ArgumentParser,
     en_vocab: Vocabulary,
@@ -140,9 +156,9 @@ def build_model(
             teacher_student_ratio=args.teacher_student_ratio,
         )
     elif args.model_type == 'ConvSeq2Seq':
-        ConvSeq2Seq.add_args(parser)
+        ConvS2S.add_args(parser)
         args = parser.parse_args()
-        return ConvSeq2Seq.build_model(
+        return ConvS2S.build_model(
             src_vocab=en_vocab,
             trg_vocab=fr_vocab,
             max_positions=args.max_positions,
@@ -156,6 +172,7 @@ def build_model(
             decoder_attention=args.decoder_attention,
             share_embed=args.share_embed,
             decoder_positional_embed=args.decoder_positional_embed,
+            binarize=args.binarize,
         )
     else:
         raise Exception(
