@@ -114,7 +114,7 @@ def main() -> None:
             )
         elif args.dataset == 'IWSLT':
             mt_train, mt_valid, mt_test = datasets.IWSLT.splits(
-            exts=('.en', '.de'),
+                exts=('.en', '.de'),
                 fields=(src, trg), 
             )
         else:
