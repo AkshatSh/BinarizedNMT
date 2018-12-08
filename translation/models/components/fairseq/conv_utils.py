@@ -11,7 +11,7 @@ from .linearized_conv import LinearizedConvolution as fairseq_linear_conv
 
 from .conv_tbc import ConvTBC as fairseq_convtbc
 
-USE_SIMPLE = True
+USE_SIMPLE = False
 
 def Embedding(
     num_embeddings: int, 
