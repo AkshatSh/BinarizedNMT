@@ -449,6 +449,7 @@ class ConvDecoder(DecoderModel):
         x = self.fc2(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.fc3(x)
+        x = F.log_softmax(x, dim=2)
 
         return x, None
 
@@ -516,7 +517,7 @@ def add_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--max_positions', type=int, default=1024, help='the maximum positions for hte positional embedding')
 
     # encoder hyper parameters
-    parser.add_argument('--encoder_embed_dim', type=int, default=768, help='the embedding dimension for the encoder')
+    parser.add_argument('--encoder_embed_dim', type=int, default=256, help='the embedding dimension for the encoder')
     parser.add_argument(
         '--encoder_conv_spec', 
         type=ConvSpecType,
@@ -526,14 +527,14 @@ def add_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--encoder_dropout', type=float, default=0.1, help='dropout for the encoder')
 
     # decoder hyper parameters
-    parser.add_argument('--decoder_embed_dim', type=int, default=768, help='the decoder embedding dimension')
+    parser.add_argument('--decoder_embed_dim', type=int, default=256, help='the decoder embedding dimension')
     parser.add_argument(
         '--decoder_conv_spec', 
         type=ConvSpecType,
         default=get_default_conv_spec(),
         help='convolutional spec for the encoder',
     )
-    parser.add_argument('--decoder_out_embed_dim', type=int, default=512, help='the output embedding dimension')
+    parser.add_argument('--decoder_out_embed_dim', type=int, default=256, help='the output embedding dimension')
     parser.add_argument('--decoder_dropout', type=float, default=0.1, help='dropout for the decoder')
     parser.add_argument('--decoder_attention', type=bool, default=True, help='whether to use attention for the decoder')
     parser.add_argument('--share_embed', type=bool, default=False, help='whether to share the embedding layer')
