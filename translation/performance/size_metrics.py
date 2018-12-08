@@ -3,7 +3,10 @@ import torch.nn as nn
 from torch.autograd import Variable
 import numpy as np
 
-def get_model_size(model, bits=64):
+def get_model_size(
+    model: nn.Module,
+    bits: int=64
+) -> int:
     """
     Return size in bits of a module.
     """
