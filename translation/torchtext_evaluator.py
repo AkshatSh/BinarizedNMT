@@ -12,6 +12,11 @@ import torch.nn.functional as F
 import math
 
 from models import SimpleLSTMModel, AttentionRNN
+
+from models.components.binarization import (
+    Binarize,
+)
+
 from eval_args import get_arg_parser
 import constants
 from vocab import Vocabulary, load_vocab
@@ -41,8 +46,8 @@ def eval_bleu(
             src, src_lengths = data.src
             trg, trg_lengths = data.trg
 
-            predicted = model.generate_max(src, src_lengths, 100, device)
-            # predicted = model.slow_generate(src, src_lengths, 100, device)
+            # predicted = model.generate_max(src, src_lengths, 100, device)
+            predicted = model.slow_generate(src, src_lengths, 100, device)
             # predicted = (torch.Tensor(src.size(0), 100).uniform_() * (len(fr_vocab) - 1)).long()
             # predicted = predicted * 
             # predicted = model.generate_beam(src, src_lengths, 100, 5, device)
@@ -103,12 +108,12 @@ def main() -> None:
         mt_valid = None
     else:
         if args.dataset == 'Multi30k':
-            mt_train, mt_valid, _ = datasets.Multi30k.splits(
+            mt_train, mt_valid, mt_test = datasets.Multi30k.splits(
                 exts=('.en', '.de'),
                 fields=(src, trg),
             )
         elif args.dataset == 'IWSLT':
-            mt_train, mt_valid, _ = datasets.IWSLT.splits(
+            mt_train, mt_valid, mt_test = datasets.IWSLT.splits(
             exts=('.en', '.de'),
                 fields=(src, trg), 
             )
@@ -129,9 +134,13 @@ def main() -> None:
             max_size=args.torchtext_trg_max_vocab,
         )
         print('loaded vocabulary')
+    
+    # determine the correct dataset to evaluate
+    eval_dataset = mt_train if args.eval_train else mt_valid
+    eval_dataset = mt_test if args.eval_test else eval_dataset
 
     train_loader = data.BucketIterator(
-        dataset=mt_valid,
+        dataset=eval_dataset,
         batch_size=1,
         sort_key=lambda x: len(x.src), # data.interleave_keys(len(x.src), len(x.trg)),
         sort_within_batch=True,
@@ -142,15 +151,14 @@ def main() -> None:
     model = utils.build_model(parser, src.vocab, trg.vocab)
     model.load_state_dict(torch.load(args.load_path))
     model = model.eval()
+    if args.binarize:
+        print('binarizing model')
+        binarized_model = Binarize(model)
+        binarized_model.binarization()
+
 
     print('using model...')
     print(model)
-
-    if not os.path.exists(args.log_dir):
-        os.makedirs(args.log_dir)
-    
-    if not os.path.exists(os.path.join(args.save_dir, args.model_name)):
-        os.makedirs(os.path.join(args.save_dir, args.model_name))
 
     eval_bleu(
         train_loader=train_loader,
