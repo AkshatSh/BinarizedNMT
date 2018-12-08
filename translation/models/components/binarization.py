@@ -60,41 +60,45 @@ class Binarize(object):
             if isinstance(m, nn.Conv1d):
                 conv1d_count += 1
         
-        start_range = 1
-        end_range = conv1d_count - 1
+        start_range = 0
+        end_range = conv1d_count
         self.bin_range = [i for i in range(start_range, end_range)]
         self.num_of_params = len(self.bin_range)
         self.saved_params = []
         self.target_params = []
         self.target_modules = []
+        index = 0
         for m in model.modules():
             if isinstance(m, nn.Conv1d):
-                # save the weight
-                saved_weight = m.weight.data.clone()
-                self.saved_params.append(saved_weight)
-                self.target_modules.append(m.weight)
+                if index != -1:
+                    # save the weight
+                    saved_weight = m.weight.data.clone()
+                    self.saved_params.append(saved_weight)
+                    self.target_modules.append(m.weight)
 
-                # weight has the shape:
-                # (out_channel, in_channel, kernel_size)
+                    # weight has the shape:
+                    # (out_channel, in_channel, kernel_size)
+                index += 1
+        print("Targeting {} convolutions.".format(len(self.target_modules)))
     
     def meanCenterConvParams(self):
-        for index in range(self.num_of_params):
+        for index in range(len(self.target_modules)):
             s = self.target_modules[index].data.size()
             negMean = self.target_modules[index].data.mean(1, keepdim=True).\
                     mul(-1).expand_as(self.target_modules[index].data)
             self.target_modules[index].data = self.target_modules[index].data.add(negMean)
     
     def clampConvParams(self):
-        for index in range(self.num_of_params):
+        for index in range(len(self.target_modules)):
             self.target_modules[index].data = \
                     self.target_modules[index].data.clamp(-1.0, 1.0)
     
     def save_params(self):
-        for index in range(self.num_of_params):
+        for index in range(len(self.target_modules)):
             self.saved_params[index].copy_(self.target_modules[index].data)
     
     def binarize_conv_params(self):
-        for index in range(self.num_of_params):
+        for index in range(len(self.target_modules)):
             # n = kernel_size * in_channels
             curr_module = self.target_modules[index].data
             n = curr_module[0].nelement()
@@ -115,11 +119,11 @@ class Binarize(object):
         self.binarize_conv_params()
     
     def restore(self):
-        for index in range(self.num_of_params):
+        for index in range(len(self.target_modules)):
             self.target_modules[index].data.copy_(self.saved_params[index])
     
     def updateGradients(self):
-        for index in range(self.num_of_params):
+        for index in range(len(self.target_modules)):
             curr_module = self.target_modules[index].data
             n = curr_module[0].nelement()
             s = curr_module.size()
@@ -135,6 +139,3 @@ class Binarize(object):
             m_add = m_add.mul(curr_module.sign())
 
             self.target_modules[index].grad.data = m.add(m_add).mul(1.0-1.0/s[1]).mul(n)
-
-
-
