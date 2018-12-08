@@ -11,7 +11,7 @@ from tensor_logger import Logger
 Logs CPU, GPU, and memory usage about a process, very basic implementation
 """
 
-def get_cpumem(pid):
+def get_cpumem(pid: int) -> tuple:
     """
     run the ps -ux command as a subprocess and then grab CPU%, MEM%, and MEM in bytes
     """
@@ -31,7 +31,7 @@ def get_cpumem(pid):
     else:
         return None
 
-def get_gpumem(pid):
+def get_gpumem(pid: int) -> tuple:
     """
     run the gpustat -cp command as a subprocess and then grab GPU%, GPU in bytes
     """
@@ -56,7 +56,7 @@ def get_gpumem(pid):
                 pass
     return (gpu_per, int(gpu[:len(gpu)-1])*(2**20)) # GPU memory is in term of Mebibytes (2^20)
 
-def log(pid, poll_period=1800, log_dir=None):
+def log(pid: int, poll_period: int=1800, log_dir: str=None):
     """
     Method to log CPU and GPU and Memory contraints of process pid
     """
