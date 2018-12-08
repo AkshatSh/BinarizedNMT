@@ -84,6 +84,8 @@ def train(
     should_save: bool,
     binarize: bool,
     gradient_clip: float,
+    step_size: int,
+    scheduler_gamma: float,
 ) -> None:
     logger = Logger(log_dir)
     model = model.to(device)
@@ -106,7 +108,12 @@ def train(
     else:
         binarized_model = None
 
-    scheduler = StepLR(optim, step_size=6, gamma=0.1)
+    scheduler = StepLR(
+        optim,
+        step_size=step_size,
+        gamma=scheduler_gamma,
+    )
+
     nan_count = 0
     for e in range(epochs):
         total_loss = 0.0
@@ -353,6 +360,8 @@ def main() -> None:
         should_save=args.should_save,
         binarize=args.binarize,
         gradient_clip=args.gradient_clip,
+        step_size=args.scheduler_step_size,
+        scheduler_gamma=args.scheduler_gamma,
     )
 
 if __name__ == "__main__":
