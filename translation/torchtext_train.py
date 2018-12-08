@@ -9,19 +9,20 @@ from torchtext import data
 from torchtext import datasets
 from torchtext.vocab import Vocab
 from torch import nn
+from torch.optim.lr_scheduler import StepLR
 import torch.nn.functional as F
 import math
 
 from models import (
     AttentionRNN,
     AttentionQRNN,
-    # ConvSeq2Seq,
+    ConvSeq2Seq,
     ConvS2S,
     SimpleLSTMModel,
 )
 
 from models.components.binarization import (
-    Binarize
+    Binarize,
 )
 
 from train_args import get_arg_parser
@@ -51,7 +52,7 @@ def eval_model(
             # compute loss
             # compute ppl
             predicted, _ = model.forward(src, src_lengths, trg)
-            loss = F.cross_entropy(
+            loss = F.nll_loss(
                 predicted[:, :-1].contiguous().view(-1, len(trg_vocab)),
                 trg[:, 1:].contiguous().view(-1),
                 ignore_index=trg_vocab.stoi['<pad>'],
@@ -82,6 +83,7 @@ def train(
     log_step: int,
     should_save: bool,
     binarize: bool,
+    gradient_clip: float,
 ) -> None:
     logger = Logger(log_dir)
     model = model.to(device)
@@ -104,10 +106,12 @@ def train(
     else:
         binarized_model = None
 
+    scheduler = StepLR(optim, step_size=6, gamma=0.1)
     nan_count = 0
     for e in range(epochs):
         total_loss = 0.0
         count = 0
+        scheduler.step()
         with tqdm(train_loader, total=len(train_loader)) as pbar:
             for i, data in enumerate(pbar):
                 if binarize:
@@ -162,7 +166,7 @@ def train(
                     binarized_model.updateGradients()
 
                 # TODO: try gradient clipping? for exploding gradient
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clip)
                 # for p in model.parameters():
                 #     p.data.add_(-learning_rate, p.grad.data)
 
@@ -191,6 +195,12 @@ def train(
                         (e * len(train_loader) + i) * batch_size,
                     )
 
+                    logger.scalar_summary(
+                        "train perplexity", 
+                        math.exp(loss.item()),
+                        (e * len(train_loader) + i) * batch_size,
+                    )
+
                 if (i + 1) % save_step == 0:
                     print('Saving model at iteration {} for epoch {}'.format(i, e))
                     model_file_name = "model_epoch_{}_itr_{}".format(e, i)
@@ -209,6 +219,19 @@ def train(
             if valid_loader is not None:
                 valid_loss, valid_ppl = eval_model(en_vocab, fr_vocab, model, valid_loader, binarized_model)
                 print("Valid loss avg : {} | Valid Perplexity: {}".format(valid_loss, valid_ppl))
+
+                if should_save:
+                    logger.scalar_summary(
+                        "valid loss avg", 
+                        valid_loss,
+                        e,
+                    )
+
+                    logger.scalar_summary(
+                        "Valid perplexity",
+                        valid_ppl,
+                        e,
+                    )
 
 def main() -> None:
     parser = get_arg_parser()
@@ -291,7 +314,11 @@ def main() -> None:
     )
 
     model = utils.build_model(parser, src.vocab, trg.vocab)
-    model.load_state_dict(torch.load('saved_models/conv_test_iwslt/model_epoch_49_final'))
+    # model.load_state_dict(torch.load('saved_models/conv_test_iwslt/model_epoch_49_final'))
+
+    # Best Convolutional Sequence Learning with XNOR networks
+    # model.load_state_dict(torch.load('saved_models/binarized_iwslt_1_clip_conv1d/model_epoch_41_final'))
+
 
     print('using model...')
     print(model)
@@ -325,6 +352,7 @@ def main() -> None:
         log_step=args.log_step,
         should_save=args.should_save,
         binarize=args.binarize,
+        gradient_clip=args.gradient_clip,
     )
 
 if __name__ == "__main__":
