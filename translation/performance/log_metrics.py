@@ -11,9 +11,6 @@ from tensor_logger import Logger
 Logs CPU, GPU, and memory usage about a process, very basic implementation
 """
 
-GPU_PER = "Gpu"
-GPU_MEM = "Used GPU Memory"
-
 def get_cpumem(pid):
     """
     run the ps -ux command as a subprocess and then grab CPU%, MEM%, and MEM in bytes
