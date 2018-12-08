@@ -51,15 +51,15 @@ def eval_bleu(
             # predicted = (torch.Tensor(src.size(0), 100).uniform_() * (len(fr_vocab) - 1)).long()
             # predicted = predicted * 
             # predicted = model.generate_beam(src, src_lengths, 100, 5, device)
-            # pred_arr = utils.torchtext_convert_to_str(predicted.cpu().numpy(), fr_vocab)[0]
-            # out_arr = utils.torchtext_convert_to_str(trg.cpu().numpy(), fr_vocab)[0]
-            # pred_slim_arr = utils.get_raw_sentence(pred_arr)
-            # out_slim_arr = utils.get_raw_sentence(out_arr)
-            # curr_bleu = utils.compute_bleu(pred_slim_arr, out_slim_arr)
+            pred_arr = utils.torchtext_convert_to_str(predicted.cpu().numpy(), fr_vocab)[0]
+            out_arr = utils.torchtext_convert_to_str(trg.cpu().numpy(), fr_vocab)[0]
+            pred_slim_arr = utils.get_raw_sentence(pred_arr)
+            out_slim_arr = utils.get_raw_sentence(out_arr)
+            curr_bleu = utils.compute_bleu(pred_slim_arr, out_slim_arr)
             # # print("BLEU: {}".format(
             # #     curr_bleu
             # # ))
-            # bleus.append(curr_bleu)
+            bleus.append(curr_bleu)
             # output = ' '.join(pred_slim_arr)
             # actual_out = ' '.join(out_slim_arr)
             # src = ' '.join(utils.torchtext_convert_to_str(src.cpu().numpy(), en_vocab)[0])
