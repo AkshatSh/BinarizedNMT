@@ -74,11 +74,13 @@ class BinConv1d(nn.Module):
         stride: int=1,
         padding: int=-1,
         dropout: float=0,
+        is_xnor: bool = False,
     ):
         super(BinConv1d, self).__init__()
         self.layer_type = 'BinConv1d'
         self.stride = stride
         self.dropout_ratio = dropout
+        self.is_xnor = is_xnor
 
         if dropout!=0:
             self.dropout = nn.Dropout(dropout)
@@ -89,7 +91,8 @@ class BinConv1d(nn.Module):
         # self.relu = nn.ReLU(inplace=True)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x, mean = BinActive()(x)
+        if self.is_xnor:
+            x, mean = BinActive()(x)
         if self.dropout_ratio!=0:
             x = self.dropout(x)
         x = self.conv(x)
