@@ -52,7 +52,7 @@ def eval_model(
             # compute loss
             # compute ppl
             predicted, _ = model.forward(src, src_lengths, trg)
-            loss = F.nll_loss(
+            loss = F.cross_entropy(
                 predicted[:, :-1].contiguous().view(-1, len(trg_vocab)),
                 trg[:, 1:].contiguous().view(-1),
                 ignore_index=trg_vocab.stoi['<pad>'],
