@@ -115,3 +115,4 @@ tensor_logs/
 delete/
 .data/
 large_1000/
+temp.txt
