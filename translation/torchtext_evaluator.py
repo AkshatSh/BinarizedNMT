@@ -32,8 +32,13 @@ def eval_bleu(
     device: str,
     multi_gpu: bool,
     eval_fast: bool,
+    output_file: str,
 ) -> None:
     model = model.to(device)
+
+    if output_file is not None:
+        output_file = open(output_file, 'w')
+
     if multi_gpu and device == 'cuda':
        print('Using multi gpu training')
        model = torch.nn.DataParallel(model, device_ids=[0, 1]).cuda()
@@ -59,30 +64,46 @@ def eval_bleu(
             pred_slim_arr = utils.get_raw_sentence(pred_arr)
             out_slim_arr = utils.get_raw_sentence(out_arr)
             curr_bleu = utils.compute_bleu(pred_slim_arr, out_slim_arr)
-            # # print("BLEU: {}".format(
-            # #     curr_bleu
-            # # ))
             bleus.append(curr_bleu)
-            # output = ' '.join(pred_slim_arr)
-            # actual_out = ' '.join(out_slim_arr)
-            # src = ' '.join(utils.torchtext_convert_to_str(src.cpu().numpy(), en_vocab)[0])
-            # print('src\n', src)
-            # print('')
-            # print('out\n',output)
-            # print('')
-            # print('trg\n', actual_out)
 
-            # if (i >= 7):
-            #     print(bleus)
-            #     print(sum(bleus) / len(bleus))
-            #     return
+            if output_file is not None:
+                src_arr = utils.torchtext_convert_to_str(src.cpu().numpy(), en_vocab)[0]
+                src_slim_arr = utils.get_raw_sentence(src_arr)
+                output = ' '.join(pred_slim_arr)
+                actual_out = ' '.join(out_slim_arr)
+                src = ' '.join(src_slim_arr)
+                
+                entry_str = '''
+{DELIM}
+    BLEU = {BLEU}
+    src = {src}
+    target = {target}
+    predicted = {pred} 
+                '''.format(
+                    DELIM=utils.create_entry_delim(),
+                    BLEU=curr_bleu * 100,
+                    src=src,
+                    target=actual_out,
+                    pred=output,
+                )
 
+                output_file.write(entry_str)
             count += 1
             pbar.set_postfix(
                 curr_bleu=curr_bleu * 100,
                 avg_bleu=(sum(bleus) / len(bleus) * 100)
             )
             pbar.refresh()
+
+    if output_file is not None:
+        output_file.write(
+            utils.create_entry_delim() + "\n"
+        )
+
+        output_file.write(
+            'Average BLEU: {}\n'.format((sum(bleus) / len(bleus) * 100))
+        )
+        output_file.close()
 
 def main() -> None:
     parser = get_arg_parser()
@@ -172,6 +193,7 @@ def main() -> None:
         device=device,
         multi_gpu=args.multi_gpu,
         eval_fast=args.eval_fast,
+        output_file=args.output_file,
     )
 
 if __name__ == "__main__":
