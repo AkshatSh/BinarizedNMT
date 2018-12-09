@@ -73,13 +73,14 @@ def eval_bleu(
                 actual_out = ' '.join(out_slim_arr)
                 src = ' '.join(src_slim_arr)
                 
-                entry_str = '''
+                entry_str ='''
 {DELIM}
     BLEU = {BLEU}
     src = {src}
     target = {target}
     predicted = {pred} 
-                '''.format(
+'''
+                entry_str = entry_str.format(
                     DELIM=utils.create_entry_delim(),
                     BLEU=curr_bleu * 100,
                     src=src,
