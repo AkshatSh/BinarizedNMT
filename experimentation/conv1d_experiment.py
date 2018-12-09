@@ -8,12 +8,39 @@ import torch
 from torch import nn, optim
 import torch.nn.functional as F
 
+def bin_matmul(a, b):
+    '''
+    a is represented as eitehr -1 or 1
+    '''
+    output = torch.Tensor(a.shape[0], b.shape[1])
+    for row_i in range(a.shape[0]):
+        for internal in range(a.shape[1]):
+            for col_i in range(b.shape[1]):
+                curr_a = a[row_i][internal]
+                curr_b = b[internal][col_i]
+                term = curr_b if curr_a > 0 else -curr_b
+                output[row_i][col_i] += term
+    
+    return output
+
+def matmul(a, b):
+    output = torch.Tensor(a.shape[0], b.shape[1])
+    for row_i in range(a.shape[0]):
+        for internal in range(a.shape[1]):
+            for col_i in range(b.shape[1]):
+                curr_a = a[row_i][internal]
+                curr_b = b[internal][col_i]
+                output[row_i][col_i] += a * b
+    
+    return output
+
 def run():
-    in_channels = 256
-    out_channels = 512
+    batch = 1
+    in_channels = 25
+    out_channels = 51
     size = 200
     torch.manual_seed(123)
-    X = torch.rand(128, in_channels, size)
+    X = torch.rand(batch, in_channels, size)
     conv = nn.Conv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=1, bias=False)
     conv.weight.data = conv.weight.data.sign()
     out = conv(X)
@@ -34,8 +61,23 @@ def run():
     print('kernels_flat.size()', kernels_flat.size())
 
     print('({}) @ ({})'.format(kernels_flat.shape, inp_unf.shape))
+
+
+    output = torch.Tensor(
+        batch,
+        out_channels,
+        size,
+    )
+
     
-    res = kernels_flat @ inp_unf
+    # kernels_flat is only -1 or 1 
+    for batch_i in range(batch):
+        # multiply kernel_flat by inp_unf[batch_i]
+        curr_matrix = inp_unf[batch_i]
+        output[batch_i] = bin_matmul(kernels_flat, curr_matrix)
+
+    # res = kernels_flat @ inp_unf
+    res = output
     # res = res.view(1, out_channels, size)
     # print('res', res)
     print('res.size()', res.size())
