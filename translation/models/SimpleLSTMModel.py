@@ -42,7 +42,7 @@ class SimpleLSTMEncoder(EncoderModel):
         self.embed_tokens = nn.Embedding(
             num_embeddings=len(self.src_vocab),
             embedding_dim=embed_dim,
-            padding_idx=self.src_vocab.word2idx(PAD_TOKEN),
+            padding_idx=self.src_vocab.stoi['<pad>'],
         )
         self.dropout = nn.Dropout(p=dropout)
 
@@ -94,14 +94,14 @@ class SimpleLSTMDecoder(DecoderModel):
     ):
         super(SimpleLSTMDecoder, self).__init__()
 
-        self.en_vocab = src_vocab
-        self.fr_vocab = trg_vocab
+        self.src_vocab = src_vocab
+        self.trg_vocab = trg_vocab
 
         # Our decoder will embed the inputs before feeding them to the LSTM.
         self.embed_tokens = nn.Embedding(
             num_embeddings=len(trg_vocab),
             embedding_dim=embed_dim,
-            padding_idx=fr_vocab.word2idx(PAD_TOKEN),
+            padding_idx=trg_vocab.stoi['<pad>'],
         )
         self.dropout = nn.Dropout(p=dropout)
 
@@ -118,6 +118,18 @@ class SimpleLSTMDecoder(DecoderModel):
 
         # Define the output projection.
         self.output_projection = nn.Linear(hidden_dim, len(trg_vocab))
+    
+    def forward_eval(
+        self,
+        prev_tokens: torch.Tensor,
+        encoder_out: tuple,
+        intermediate: torch.Tensor,
+    ) -> torch.Tensor:
+        return self.forward(
+            prev_tokens,
+            encoder_out,
+            intermediate,
+        )
     
     def forward(
         self,
