@@ -12,6 +12,9 @@ import pickle
 import nltk
 import argparse
 
+from nltk.translate.bleu_score import SmoothingFunction
+chencherry = SmoothingFunction()
+
 from vocab import Vocabulary
 import constants
 
@@ -84,7 +87,17 @@ def compute_bleu(predicted: List[str], expected: List[str]) -> float:
     '''
     nltk.translate.bleu_score.sentence_bleu([reference], hypothesis)
     '''
-    return nltk.translate.bleu_score.sentence_bleu([expected], predicted)
+    if constants.BLEU_USE_SMOOTHING:
+        return nltk.translate.bleu_score.sentence_bleu(
+            [expected],
+            predicted,
+            smoothing_function=chencherry.method4,
+        )
+    else:
+        return nltk.translate.bleu_score.sentence_bleu(
+            [expected],
+            predicted,
+        )
 
 def get_num_parameters(model: nn.Module) -> int:
 
@@ -178,3 +191,6 @@ def build_model(
         raise Exception(
             "Unknown Model Type: {}".format(args.model_type)
         )
+
+def create_entry_delim() -> str:
+    return "\n<----------------------NEW ENTRY---------------------->"

@@ -1,6 +1,8 @@
 import os
 import sys
 
+BLEU_USE_SMOOTHING = False
+
 WMT14_EN_FR_DIR = os.path.join(os.path.dirname(__file__), '..', 'data', 'wmt14_en_fr/')
 WMT14_EN_FR_SMALL_TRAIN = os.path.join(WMT14_EN_FR_DIR, 'small_train')
 WMT14_EN_FR_TRAIN = os.path.join(WMT14_EN_FR_DIR, 'train')
