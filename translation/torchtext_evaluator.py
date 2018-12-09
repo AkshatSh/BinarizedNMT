@@ -31,6 +31,7 @@ def eval_bleu(
     fr_vocab: Vocabulary,
     device: str,
     multi_gpu: bool,
+    eval_fast: bool,
 ) -> None:
     model = model.to(device)
     if multi_gpu and device == 'cuda':
@@ -46,8 +47,10 @@ def eval_bleu(
             src, src_lengths = data.src
             trg, trg_lengths = data.trg
 
-            # predicted = model.generate_max(src, src_lengths, 100, device)
-            predicted = model.slow_generate(src, src_lengths, 100, device)
+            if eval_fast:
+                predicted = model.generate_max(src, src_lengths, 100, device)
+            else:
+                predicted = model.slow_generate(src, src_lengths, 100, device)
             # predicted = (torch.Tensor(src.size(0), 100).uniform_() * (len(fr_vocab) - 1)).long()
             # predicted = predicted * 
             # predicted = model.generate_beam(src, src_lengths, 100, 5, device)
@@ -168,6 +171,7 @@ def main() -> None:
         fr_vocab=trg.vocab,
         device=device,
         multi_gpu=args.multi_gpu,
+        eval_fast=args.eval_fast,
     )
 
 if __name__ == "__main__":
