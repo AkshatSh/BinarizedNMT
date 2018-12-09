@@ -11,7 +11,7 @@ from tensor_logger import Logger
 Logs CPU, GPU, and memory usage about a process, very basic implementation
 """
 
-GPU_TOTAL = 11441.0
+GPU_TOTAL = 11441.0 # specific to the GPU on the testing maching, change as necessary
 
 def get_cpumem(pid: int) -> tuple:
     """
@@ -56,7 +56,7 @@ def get_gpumem(pid: int) -> tuple:
                 gpu = (re.search(r'\((.*?)\)', item).group(1))
             except:
                 pass
-    return (int(gpu[:len(gpu)-1])/GPU_TOTAL, int(gpu[:len(gpu)-1])*(2**20)) # GPU memory is in term of Mebibytes (2^20)
+    return ((int(gpu[:len(gpu)-1])/GPU_TOTAL)*100, int(gpu[:len(gpu)-1])*(2**20)) # GPU memory is in term of Mebibytes (2^20)
 
 def log(pid: int, poll_period: int=1800, log_dir: str=None):
     """
