@@ -68,7 +68,7 @@ def log(pid: int, poll_period: int=60, log_dir: str=None):
     else:
         logger = Logger(log_dir)
     try:
-        timestamp = 1
+        timestamp = 0
         while True:
             # Get CPU and MEM stats
             cpu_res = get_cpumem(pid)
@@ -115,7 +115,7 @@ def log(pid: int, poll_period: int=60, log_dir: str=None):
                     gpu,
                     timestamp,
                 )
-            timestamp  = timestamp + 1
+            timestamp  = timestamp + poll_period
             time.sleep(poll_period)
     except KeyboardInterrupt:
         print()
