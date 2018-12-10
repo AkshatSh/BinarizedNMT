@@ -58,7 +58,7 @@ def get_gpumem(pid: int) -> tuple:
                 pass
     return ((int(gpu[:len(gpu)-1])/GPU_TOTAL)*100, int(gpu[:len(gpu)-1])*(2**20)) # GPU memory is in term of Mebibytes (2^20)
 
-def log(pid: int, poll_period: int=1800, log_dir: str=None):
+def log(pid: int, poll_period: int=60, log_dir: str=None):
     """
     Method to log CPU and GPU and Memory contraints of process pid
     """
@@ -68,6 +68,7 @@ def log(pid: int, poll_period: int=1800, log_dir: str=None):
     else:
         logger = Logger(log_dir)
     try:
+        timestamp = 0
         while True:
             # Get CPU and MEM stats
             cpu_res = get_cpumem(pid)
@@ -89,7 +90,6 @@ def log(pid: int, poll_period: int=1800, log_dir: str=None):
             if logger is None:
                print("{},{},{},{},{}\n".format(cpu_per,mem_per,mem,gpu_per,gpu))
             else:
-                timestamp = time.time()
                 logger.scalar_summary(
                     "cpu_percentage",
                     cpu_per,
@@ -115,6 +115,7 @@ def log(pid: int, poll_period: int=1800, log_dir: str=None):
                     gpu,
                     timestamp,
                 )
+            timestamp  = timestamp + poll_period
             time.sleep(poll_period)
     except KeyboardInterrupt:
         print()
