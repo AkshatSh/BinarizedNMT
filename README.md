@@ -167,20 +167,27 @@ $ pip install https://github.com/adrianodennanni/tensorflow-1.12.0-cp37-cp37m-li
 
 ## References
 
+Attention and Simple LSTM [Pictures:](https://medium.com/syncedreview/a-brief-overview-of-attention-mechanism-13c578ba9129)
+
 ### Papers
 
-1. Xnor - Net: [Paper](https://arxiv.org/abs/1603.05279)
+1. XNOR - Net: [Paper](https://arxiv.org/abs/1603.05279)
 2. Multi bit quantization networks: [Paper](https://arxiv.org/pdf/1802.00150.pdf)
 3. Binarized LSTM Language Model: [Paper](http://aclweb.org/anthology/N18-1192)
 4. Fair Seq Convolutinal Sequence Learning: [Paper](https://arxiv.org/pdf/1705.03122.pdf)
 5. Quasi Recurrent Networks: [Paper](https://arxiv.org/abs/1611.01576 )
 6. WMT 14 Translation Task [Paper](http://www.statmt.org/wmt14/translation-task.html)
 7. Attention is all you need [Paper](https://arxiv.org/abs/1706.03762)
+8. Imagination improves multimodal translation [Paper](https://arxiv.org/abs/1705.04350) 
+9. Multi30k dataset [Paper](https://arxiv.org/abs/1605.00459) 
+10. IWSLT [paper](http://workshop2017.iwslt.org/downloads/O1-2-Paper.pdf) 
 
 ### Githubs and Links
 
 1. [Pytorch MT Seq2Seq Tutorial](https://pytorch.org/tutorials/intermediate/seq2seq_translation_tutorial.html)
-2. [Xnor NET Pytorch](https://github.com/jiecaoyu/XNOR-Net-PyTorch)
+2. [XNOR-net AI2](https://github.com/allenai/XNOR-Net)
 3. [Annotated Transformer (Harvard NLP)](http://nlp.seas.harvard.edu/2018/04/03/attention.html)
 4. [Salesforce QRNN Pytorch](https://github.com/salesforce/pytorch-qrnn)
 5. [Fair Seq](https://github.com/pytorch/fairseq)
+6. [Torchtext](https://github.com/pytorch/text)
+7. [XNOR NET Pytorch](https://github.com/jiecaoyu/XNOR-Net-PyTorch)
