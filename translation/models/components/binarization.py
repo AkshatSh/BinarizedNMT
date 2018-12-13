@@ -166,14 +166,24 @@ class BinarizeConvolutionalModule(BinarizeModule):
             n = curr_module[0].nelement()
             s = curr_module.size()
 
+            
             m = curr_module.norm(1, 2, keepdim=True).sum(1, keepdim=True).div(n).expand(s)
+
+            # clamping
             m[curr_module.lt(-1.0)] = 0 
             m[curr_module.gt(1.0)] = 0
 
+            # multiply gradients by norm
             m = m.mul(self.target_modules[index].grad.data)
+
+            # multiply gradients by sign
             m_add = curr_module.sign().mul(self.target_modules[index].grad.data)
+
+            # sum all the gradients by the sign
             m_add = m_add.sum(2, keepdim=True)\
                     .sum(1, keepdim=True).div(n).expand(s)
+            
+            # multiply the sum of gradients by sign of th module
             m_add = m_add.mul(curr_module.sign())
 
             self.target_modules[index].grad.data = m.add(m_add).mul(1.0-1.0/s[1]).mul(n)
