@@ -222,14 +222,14 @@ class BinarizeLinearModule(BinarizeModule):
                 # (out_dim, in_dim)
         print("Targeting {} linear layers.".format(len(self.target_modules)))
     
-    def meanCenterConvParams(self):
+    def mean_center_conv_params(self):
         for index in range(len(self.target_modules)):
             s = self.target_modules[index].data.size()
             negMean = self.target_modules[index].data.mean(1, keepdim=True).\
                     mul(-1).expand_as(self.target_modules[index].data)
             self.target_modules[index].data = self.target_modules[index].data.add(negMean)
     
-    def clampConvParams(self):
+    def clamp_conv_params(self):
         for index in range(len(self.target_modules)):
             self.target_modules[index].data = \
                     self.target_modules[index].data.clamp(-1.0, 1.0)
@@ -254,8 +254,8 @@ class BinarizeLinearModule(BinarizeModule):
             self.target_modules[index].data = curr_module.sign().mul(abs_mean)
 
     def binarization(self):
-        self.meanCenterConvParams()
-        self.clampConvParams()
+        self.mean_center_conv_params()
+        self.clamp_conv_params()
         self.save_params()
         self.binarize_conv_params()
     
@@ -266,7 +266,7 @@ class BinarizeLinearModule(BinarizeModule):
     def update_gradients(self):
         for index in range(len(self.target_modules)):
             if (self.target_modules[index].grad is None):
-                print('skipping {}'.format(index))
+                # ('skipping {}'.format(index))
                 continue
             curr_module = self.target_modules[index].data
             n = curr_module[0].nelement()
