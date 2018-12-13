@@ -56,6 +56,41 @@ class Binarize(object):
         model: nn.Module,
     ):
         super(Binarize, self).__init__()
+        self.modules = [
+            BinarizeConvolutionalModule(model),
+        ]
+
+    def binarization(self):
+        for module in self.modules:
+            module.binarization()
+    
+    def restore(self):
+        for module in self.modules:
+            module.restore()
+    
+    def update_gradients(self):
+        for module in self.modules:
+            module.update_gradients()
+
+class BinarizeModule(object):
+    def __init__(self, model: nn.Module):
+        pass
+    
+    def binarization(self) -> None:
+        pass
+    
+    def restore(self) -> None:
+        pass
+    
+    def update_gradients(self) -> None:
+        pass
+
+class BinarizeConvolutionalModule(BinarizeModule):
+    def __init__(
+        self,
+        model: nn.Module,
+    ):
+        super(Binarize, self).__init__()
         self.model = model
 
         # get the number of conv1d modules
@@ -125,7 +160,7 @@ class Binarize(object):
         for index in range(len(self.target_modules)):
             self.target_modules[index].data.copy_(self.saved_params[index])
     
-    def updateGradients(self):
+    def update_gradients(self):
         for index in range(len(self.target_modules)):
             curr_module = self.target_modules[index].data
             n = curr_module[0].nelement()
