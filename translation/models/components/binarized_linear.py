@@ -10,6 +10,7 @@ class BinLinear(nn.Module):
         self,
         input_channels: int,
         output_channels: int,
+        dropout: float = 0.0,
         is_xnor: bool = False,
     ):
         super(BinLinear, self).__init__()
@@ -23,18 +24,20 @@ class BinLinear(nn.Module):
             x, mean = BinActive()(x)
         x = self.linear(x)
         # x = self.relu(x)
-        return 
+        return x
 
 class XNORLinear(BinLinear):
     def __init__(
         self,
         input_channels: int,
         output_channels: int,
+        dropout: float = 0.0
     ):
         BinLinear.__init__(
             self,
             input_channels=input_channels,
             output_channels=output_channels,
+            dropout=dropout,
             is_xnor=True,
         )
 
