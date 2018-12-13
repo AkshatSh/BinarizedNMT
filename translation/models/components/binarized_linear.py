@@ -31,10 +31,11 @@ class XNORLinear(BinLinear):
         input_channels: int,
         output_channels: int,
     ):
-        super(XNORLinear, self).__init__(
-            input_channels,
-            output_channels,
-            True,
+        BinLinear.__init__(
+            self,
+            input_channels=input_channels,
+            output_channels=output_channels,
+            is_xnor=True,
         )
 
         self.layer_type = 'XNORLinear'
