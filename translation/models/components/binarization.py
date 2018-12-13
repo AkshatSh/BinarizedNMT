@@ -58,7 +58,7 @@ class Binarize(object):
         super(Binarize, self).__init__()
         self.modules = [
             BinarizeConvolutionalModule(model),
-            # BinarizeLinearModule(model),
+            BinarizeLinearModule(model),
         ]
 
     def binarization(self):
@@ -266,7 +266,7 @@ class BinarizeLinearModule(BinarizeModule):
     def update_gradients(self):
         for index in range(len(self.target_modules)):
             if (self.target_modules[index].grad is None):
-                # print('skipping {}'.format(index))
+                print('skipping {}'.format(index))
                 continue
             curr_module = self.target_modules[index].data
             n = curr_module[0].nelement()
@@ -288,7 +288,7 @@ class BinarizeLinearModule(BinarizeModule):
             # sum all the gradients by the sign
             m_add = m_add.sum(1, keepdim=True).div(n).expand(s)
             
-            # multiply the sum of gradients by sign of th module
+            # multiply the sum of gradients by sign of the module
             m_add = m_add.mul(curr_module.sign())
 
             self.target_modules[index].grad.data = m.add(m_add).mul(1.0-1.0/s[1]).mul(n)
