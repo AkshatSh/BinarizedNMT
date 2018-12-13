@@ -144,12 +144,12 @@ class AttentionModule(nn.Module):
         )
 
 class AttentionLayer(nn.Module):
-    def __init__(self, conv_channels, embed_dim, bmm=None):
+    def __init__(self, conv_channels, embed_dim, linear_class=nn.Linear, bmm=None):
         super().__init__()
         # projects from output of convolution to embedding dimension
-        self.in_projection = nn.Linear(conv_channels, embed_dim)
+        self.in_projection = linear_class(conv_channels, embed_dim)
         # projects from embedding dimension to convolution size
-        self.out_projection = nn.Linear(embed_dim, conv_channels)
+        self.out_projection = linear_class(embed_dim, conv_channels)
 
         self.bmm = bmm if bmm is not None else torch.bmm
 

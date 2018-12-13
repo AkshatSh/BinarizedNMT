@@ -76,6 +76,7 @@ class ConvEncoder(EncoderModel):
         convolution_spec: ConvSpecType,
         dropout: float,
         binarize: bool,
+        linear_type: type,
     ):
         '''
         Arguments:
@@ -106,7 +107,7 @@ class ConvEncoder(EncoderModel):
         in_channels = self.convolution_spec[0][0]
 
         # convert the embedding dimensions into the input channels
-        self.fc1 = Linear(embedding_dim, in_channels)
+        self.fc1 = linear_type(embedding_dim, in_channels)
 
         self.projections = nn.ModuleList()
         self.convolutions = nn.ModuleList()
@@ -159,7 +160,7 @@ class ConvEncoder(EncoderModel):
             in_channels = out_channels
             layer_in_channels.append(out_channels)
         
-        self.fc2 = Linear(
+        self.fc2 = linear_type(
             in_channels,
             embedding_dim,
         )
@@ -263,6 +264,7 @@ class ConvDecoder(DecoderModel):
         share_embed: bool,
         positional_embedding: bool,
         binarize: bool,
+        linear_type: type,
     ):
         super(ConvDecoder, self).__init__()
         self.trg_dictionary = trg_dictionary
@@ -301,7 +303,7 @@ class ConvDecoder(DecoderModel):
 
 
 
-        self.fc1 = Linear(embed_dim, in_channels, dropout=dropout)
+        self.fc1 = linear_type(embed_dim, in_channels, dropout=dropout)
         self.projections = nn.ModuleList()
         self.convolutions = nn.ModuleList()
         self.attentions = nn.ModuleList()
@@ -354,18 +356,19 @@ class ConvDecoder(DecoderModel):
                 AttentionLayer(
                     out_channels,
                     embed_dim,
+                    linear_type,
                 ) if self.attention[i] else None
             )
 
             in_channels = out_channels
             layer_in_channels.append(out_channels)
 
-        self.fc2 = Linear(
+        self.fc2 = linear_type(
             out_channels,
             out_embed_dim,
         )
 
-        self.fc3 = Linear(
+        self.fc3 = linear_type(
             out_embed_dim,
             num_embeddings,
         )
@@ -449,7 +452,15 @@ def build_model(
     share_embed: bool,
     decoder_positional_embed: bool,
     binarize: bool,
+    linear_type: str,
 ) -> nn.Module:
+    if binarize:
+        if linear_type == 'bwn':
+            linear_class = BinLinear
+        elif linear_type == 'xnor':
+            linear_class = XNORLinear
+    else:
+        linear_class = Linear
     encoder = ConvEncoder(
         src_vocab=src_vocab,
         embedding_dim=encoder_embed_dim,
@@ -457,6 +468,7 @@ def build_model(
         convolution_spec=encoder_conv_spec,
         dropout=encoder_dropout,
         binarize=binarize,
+        linear_type=linear_class,
     )
 
     decoder = ConvDecoder(
@@ -470,6 +482,7 @@ def build_model(
         share_embed=share_embed,
         positional_embedding=decoder_positional_embed,
         binarize=binarize,
+        linear_type=linear_class,
     )
 
     encoder.num_attention_layers = sum(layer is not None for layer in decoder.attentions)
@@ -552,6 +565,7 @@ def multi30k_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--decoder_attention', type=bool, default=True, help='whether to use attention for the decoder')
     parser.add_argument('--share_embed', type=bool, default=False, help='whether to share the embedding layer')
     parser.add_argument('--decoder_positional_embed', type=bool, default=True, help='whether to use the positional embeddings')
+    parser.add_argument('--linear_type', type=str, default='xnor', help='the type of linear layer to use (None, bwn, xnor)')
 
 def add_args(parser: argparse.ArgumentParser) -> None:
     multi30k_args(parser)
