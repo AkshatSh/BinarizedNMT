@@ -101,7 +101,8 @@ class XNORConv1d(BinConv1d):
         padding: int=-1,
         dropout: float=0,
     ):
-        super(BinConv1d, self).__init__(
+        BinConv1d.__init__(
+            self,
             input_channels=input_channels,
             output_channels=output_channels,
             kernel_size=kernel_size,

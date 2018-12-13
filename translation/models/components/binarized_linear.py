@@ -33,7 +33,7 @@ class XNORLinear(BinLinear):
     ):
         super(XNORLinear, self).__init__(
             input_channels,
-            output_channels.
+            output_channels,
             True,
         )
 
