@@ -37,7 +37,7 @@ The same model as above, but using QRNN (Quasi Recurrent Neural Network develope
 
 #### ConvS2S
 
-![ConvS2S](fairseq.gif)
+![ConvS2S](figs/fairseq.gif)
 
 This model (implemented by FAIR) rather than using RNNs, creates a series of convolutional layers that are used for the encoder, and decoder along with attention.
 
