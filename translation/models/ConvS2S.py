@@ -501,7 +501,7 @@ def get_default_conv_spec() -> ConvSpecType:
     # Above architecture experiences exploding gradients
     
     convs = "[(256, 3, 1, 'xnor')] * 4"
-    bin_conv = '[(512, 3, 1)] * 4'
+    bin_conv = '[(512, 3, 1, None)] * 4'
     # convs = '[(256, 3, 1)] * 2 + [(512, 3, 1)] * 2'
 
     # convs = '[(512, 3, 1)] * 2 + [(1024, 3, 1)] * 2' # + [(2048, 1, 1)] * 2'
