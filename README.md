@@ -60,6 +60,7 @@ This model extends upon the binarized weight network. The input is binarized as 
 
 ![BLEU](figs/bleu.png)
 
+**Other stats can be found in this [issue](https://github.com/AkshatSh/BinarizedNMT/issues/16)**
 
 ### Model Size
 We compare model size of two different sets of models. First the models we ran our Multi30k experiments on. Then the large models. Since our dataset is quite a bit smaller, we also ran experiments on the size of the models that are used for larger translation datasets such as WMT, and note the hyper parameters reported in their papers.
@@ -68,6 +69,7 @@ We compare model size of two different sets of models. First the models we ran o
 
 
 ![LargeModelSize](figs/largemodel.png)
+
 
 
 ## Set Up
