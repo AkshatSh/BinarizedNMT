@@ -1,122 +1,67 @@
-# BinarizedNMT
+# Binarized Neural Machine Translation
 
-## Proposal
+We explore ways to reduce computation and model size for neural machine translation. With the development of binary weight networks and XNOR networks in vision, we attempt to extend that work to machine translation. In particular, we evaluate how binary convolutions can be used in machine translation and their effects.
 
-Exploring ways to reduce Neural Machine Translation Memory and Computation through binarized networks
+* [Paper] (BinarizingNMT.pdf)
+* [Poster] (CSE599DLPoster.pdf)
 
-With the development of binarized networks showing promise in vision, such as xnor-net [1], and promise in language modeling [3]. We want to use our deep learning project to investigate how we can use binarized networks to reduce memory use and computation for machine translation, a possible application being translation locally on edge devices.
+## Datasets
 
-### Approach
+Although our analysis is done on Multi30k dataset, our code supports the following datasets:
 
-Following the development of xnor-net we aim to use the binarized weights and convolutions in place of the normal convolutions in convolution based machine translation networks such as Conv2Seq [4] and Quasi Recurrent Networks [5] and compare the memory use and computation to the non binarized equivalent and state of the art translation models.
+* WMT 14 EN - FR
+* IWSLT
+* Multi30k
 
-### Dataset
+## Models
 
-To make the scope a bit more manageable we will specifically look at English to French translation [6].
+### Baseline Models
 
-### Training
+We implement 4 baseline models to compare our binarized models against.
 
-We will implement the models in PyTorch and train these models on a mixture of colab machines, attu gpu machines, and personal computers.
+#### Simple LSTM
+An encoder decoder model, that encodes the source language with an LSTM, then presents the final hidden state to the decoder. The decoder uses the final hidden state to decode the output.
 
-## Implementation
+#### Attention RNN
 
-### Components to be Implemented
+An encoder decoder model, similar to the last but at every decoder step applies an attention mechanism over all the encoder outputs conditioned on the current hidden state.
 
-These are the list of components to be implemented that will be useful in all the differnet models we will use.
+#### Attention QRNN
 
-#### Binarized Convolution
+The same model as above, but using QRNN (Quasi Recurrent Neural Network developed by Salesforce Research) instead of LSTMs. QRNN should be much faster since the rely on lower level convolutions and can be parallelized further than Attention RNN.
 
-This is the convolution introduced in the xnor-net paper for binary convolution, this is what will do the majority of the space saving and computation saving. The paper [1] has the definition of the component mathematically and [2] is a pytorch implementation of the xnor-net.
+#### ConvS2S
 
-- [ ] Implement Transformer
-- [ ] Add tests
+This model (implemented by FAIR) rather than using RNNs, creates a series of convolutional layers that are used for the encoder, and decoder along with attention.
 
-#### Binarized LSTM Cell
+### Binarized Models
 
-This is the LSTM introduced in [3]. It works on reducing the space in word embeddings and language models. This could be used in the sequence to sequence model in efforts to reduce space as well.
+We implement two variants of binarized networks to compare performance.
 
-- [ ] Implement Transformer
-- [ ] Add tests
+#### ConvS2S Binarized Weight Networks
 
-#### Self Attention
+This
+model is the same as the one implemented above, with one key difference. All the weights are represented as a binary tensor β, and a normalization vector such that `W ≈ β · α`. The benefit here is that a convolution can be estimated as `(I · β) · α`
 
-Self attention is useful for most of these networks so the network can learn that some words are more importnat than the other. The majority of the network implementations have them defined in the network, abstracting it away will help us keep things consistent.
+#### ConvS2S XNOR network
 
-- [ ] Implement Transformer
-- [ ] Add tests
+This model extends upon the binarized weight network. The input is binarized as well so the convolutions can be estimated as `(sign(I) · sign(β)) · α`.
 
-#### Multihead Attention
+## Notable Results
 
-This was defined in the attention is all you need paper [7]. If we implement the attention transformer this will be useful. An annotated guide for the transformer is [3].
+### Translation Performance
 
-### Models
-
-#### Seq2Seq
-
-Following the implementation of the Seq2Seq model we want to experiment how a simple LSTM based sequence model handles our Machine Translation task as a baseline benchmark.
-
-- [ ] Adjust Pytorch tutorial for our case
-- [ ] Tune Model for optimal performance
-- [ ] Compare runtime of inference on CPU and GPU
-- [ ] Get metric Benchmarks
-
-#### Seq2Seq With Attention
-
-Following the implementation of the Seq2Seq with attention model, we want to experiment how a simple LSTM based sequence model handles our Machine Translation task as a baseline benchmark.
-
-- [ ] Adjust Pytorch tutorial for our case
-- [ ] Tune Model for optimal performance
-- [ ] Compare runtime of inference on CPU and GPU
-- [ ] Get metric Benchmarks
-
-#### QRNN (Quasi Recurrent Neural Networks)
-
-A network developed by Salesforce Research which replaces LSTM cells in recurrent networks with convolutional networks, making the network much more parallel. We wil investigate a network that can replace these convlutions with binary convolutions. Implementation of the paper by the researchers is in [4] and the paper itself in [5] (said to be 17x faster than cudNN LSTM).
-
-- [ ] Adjust QRNN to work for our case
-- [ ] Implement Binarized QRNN
-- [ ] Tune Binarized QRNN
-- [ ] Compare runtime of inference on CPU and GPU
-- [ ] Get metric Benchmarks
+![BLEU](figs/bleu.png)
 
 
-#### Convolutional Sequence Learning
+### Model Size
+We compare model size of two different sets of models. First the models we ran our Multi30k experiments on. Then the large models. Since our dataset is quite a bit smaller, we also ran experiments on the size of the models that are used for larger translation datasets such as WMT, and note the hyper parameters reported in their papers.
 
-A network developed by Facebook Research (FAIR) which does not rely on RNNs but rather an encoder decoder model with convolutions instead. This has the most promise since it relies the most on convolutions. The paper [4] and github [5] have the materials necessary.
+![ModelSize](figs/modelsizeinbits.png)
 
-- [ ] Adjust ConvSeq to work for our case
-- [ ] Implement Binarized ConvSeq
-- [ ] Tune Binarized ConvSeq
-- [ ] Compare runtime of inference on CPU and GPU
-- [ ] Get metric Benchmarks
 
-#### Attention Transformer
+![LargeModelSize](figs/largemodel.png)
 
-If we have time, this is state of the art which is highly paralleized but trains on Googles TPUs, which require a lot memory, can we implement a biniarized version of this.
-
-### Metircs to Analyze
-
-#### CPU Time and Computation
-
-What we hope to optimize, to enable edge devices since we can't necessairly rely on GPUs.
-
-#### GPU Time and Computation
-
-Most modern phones and devices have GPUs optimizing this would also be helpful.
-
-#### BLEU Score
-
-Standard metric for Machine Translation accuracy.
-
-#### Size of Model
-
-Since models are stored on computers and phones to run locally, we want to minimize the size of the model as well.
-
-## Applications
-
-Just ideas for different applications here:
-
-- Live Stream Translation
 
 ## Set Up
 
