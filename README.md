@@ -3,7 +3,7 @@
 We explore ways to reduce computation and model size for neural machine translation. With the development of binary weight networks and XNOR networks in vision, we attempt to extend that work to machine translation. In particular, we evaluate how binary convolutions can be used in machine translation and their effects.
 
 * [Paper](BinarizingNMT.pdf)
-* [Poster](CSE599DLPoster.pdf)
+* [Poster](poster.pdf)
 
 ## Datasets
 
