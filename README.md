@@ -112,7 +112,7 @@ $ pip install https://github.com/adrianodennanni/tensorflow-1.12.0-cp37-cp37m-li
 
 ## References
 
-Attention and Simple LSTM [Pictures:](https://medium.com/syncedreview/a-brief-overview-of-attention-mechanism-13c578ba9129)
+Attention and Simple LSTM [Pictures](https://medium.com/syncedreview/a-brief-overview-of-attention-mechanism-13c578ba9129)
 
 ### Papers
 
