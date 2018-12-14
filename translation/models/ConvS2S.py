@@ -454,13 +454,13 @@ def build_model(
     binarize: bool,
     linear_type: str,
 ) -> nn.Module:
+    linear_class = Linear
     if binarize:
         if linear_type == 'bwn':
             linear_class = BinLinear
         elif linear_type == 'xnor':
             linear_class = XNORLinear
-    else:
-        linear_class = Linear
+
     encoder = ConvEncoder(
         src_vocab=src_vocab,
         embedding_dim=encoder_embed_dim,
@@ -500,7 +500,7 @@ def get_default_conv_spec() -> ConvSpecType:
     # convs += ' + [(2048, 1, 1)] * 2'  # final 2 layers use 1x1 convolutions
     # Above architecture experiences exploding gradients
     
-    convs = "[(256, 3, 1, 'xnor')] * 4"
+    convs = "[(256, 3, 1, 'bwn')] * 4"
     bin_conv = '[(512, 3, 1, None)] * 4'
     # convs = '[(256, 3, 1)] * 2 + [(512, 3, 1)] * 2'
 
@@ -565,7 +565,7 @@ def multi30k_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--decoder_attention', type=bool, default=True, help='whether to use attention for the decoder')
     parser.add_argument('--share_embed', type=bool, default=False, help='whether to share the embedding layer')
     parser.add_argument('--decoder_positional_embed', type=bool, default=True, help='whether to use the positional embeddings')
-    parser.add_argument('--linear_type', type=str, default='xnor', help='the type of linear layer to use (None, bwn, xnor)')
+    parser.add_argument('--linear_type', type=str, default=None, help='the type of linear layer to use (None, bwn, xnor)')
 
 def add_args(parser: argparse.ArgumentParser) -> None:
     multi30k_args(parser)
