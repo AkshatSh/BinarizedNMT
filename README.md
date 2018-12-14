@@ -20,9 +20,14 @@ Although our analysis is done on Multi30k dataset, our code supports the followi
 We implement 4 baseline models to compare our binarized models against.
 
 #### Simple LSTM
+
+![simplelstm](figs/simplelstm.png)
+
 An encoder decoder model, that encodes the source language with an LSTM, then presents the final hidden state to the decoder. The decoder uses the final hidden state to decode the output.
 
 #### Attention RNN
+
+![attentionlstm](figs/attentionlstm.png)
 
 An encoder decoder model, similar to the last but at every decoder step applies an attention mechanism over all the encoder outputs conditioned on the current hidden state.
 
@@ -31,6 +36,8 @@ An encoder decoder model, similar to the last but at every decoder step applies 
 The same model as above, but using QRNN (Quasi Recurrent Neural Network developed by Salesforce Research) instead of LSTMs. QRNN should be much faster since the rely on lower level convolutions and can be parallelized further than Attention RNN.
 
 #### ConvS2S
+
+![ConvS2S](fairseq.gif)
 
 This model (implemented by FAIR) rather than using RNNs, creates a series of convolutional layers that are used for the encoder, and decoder along with attention.
 
@@ -112,7 +119,9 @@ $ pip install https://github.com/adrianodennanni/tensorflow-1.12.0-cp37-cp37m-li
 
 ## References
 
-Attention and Simple LSTM [Pictures](https://medium.com/syncedreview/a-brief-overview-of-attention-mechanism-13c578ba9129)
+1. Attention and Simple LSTM [Pictures](https://medium.com/syncedreview/a-brief-overview-of-attention-mechanism-13c578ba9129)
+
+2. FairSeq ConvS2S Gif [Original](https://raw.githubusercontent.com/pytorch/fairseq/master/fairseq.gif)
 
 ### Papers
 
