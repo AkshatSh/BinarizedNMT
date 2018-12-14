@@ -19,6 +19,10 @@ from .binarized_convolution import (
     BinConv1d,
 )
 
+from .binarized_linear import (
+    BinLinear,
+)
+
 class Binarize(object):
     '''
     This object wraps the model passed in, to allow binary network training
@@ -97,7 +101,7 @@ class BinarizeConvolutionalModule(BinarizeModule):
         # get the number of conv1d modules
         conv1d_count = 0
         for m in model.modules():
-            if isinstance(m, nn.Conv1d):
+            if isinstance(m, BinConv1d):
                 conv1d_count += 1
         
         start_range = 0
@@ -200,7 +204,7 @@ class BinarizeLinearModule(BinarizeModule):
         # get the number of conv1d modules
         linear_count = 0
         for m in model.modules():
-            if isinstance(m, nn.Linear):
+            if isinstance(m, BinLinear):
                 linear_count += 1
         
         start_range = 0
@@ -212,8 +216,9 @@ class BinarizeLinearModule(BinarizeModule):
         self.target_modules = []
         index = 0
         for m in model.modules():
-            if isinstance(m, nn.Linear):
+            if isinstance(m, BinLinear):
                 # save the weight
+                m = m.linear
                 saved_weight = m.weight.data.clone()
                 self.saved_params.append(saved_weight)
                 self.target_modules.append(m.weight)
