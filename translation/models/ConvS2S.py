@@ -25,13 +25,19 @@ from models.components.fairseq.conv_utils import (
 
 from models.components.binarized_convolution import (
     BinConv1d,
+    XNORConv1d,
+)
+
+from models.components.binarized_linear import (
+    BinLinear,
+    XNORLinear,
 )
 
 from models.EncoderDecoder import (
     EncoderModel,
     DecoderModel,
     EncoderDecoderModel,
-    DecoderOutputType,
+    DecoderOutputType
 )
 
 from models.components.attention import (
@@ -61,18 +67,6 @@ ConvSpecType = List[
     ConvSpecEntry
 ]
 
-
-class GradMultiply(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, x, scale):
-        ctx.scale = scale
-        res = x.new(x)
-        return res
-
-    @staticmethod
-    def backward(ctx, grad):
-        return grad * ctx.scale, None
-
 class ConvEncoder(EncoderModel):
     def __init__(
         self,
@@ -82,6 +76,7 @@ class ConvEncoder(EncoderModel):
         convolution_spec: ConvSpecType,
         dropout: float,
         binarize: bool,
+        linear_type: type,
     ):
         '''
         Arguments:
@@ -112,7 +107,7 @@ class ConvEncoder(EncoderModel):
         in_channels = self.convolution_spec[0][0]
 
         # convert the embedding dimensions into the input channels
-        self.fc1 = Linear(embedding_dim, in_channels)
+        self.fc1 = linear_type(embedding_dim, in_channels)
 
         self.projections = nn.ModuleList()
         self.convolutions = nn.ModuleList()
@@ -120,9 +115,7 @@ class ConvEncoder(EncoderModel):
 
         layer_in_channels = [in_channels]
 
-        conv_type = Conv1d if not binarize else BinConv1d
-
-        for i, (out_channels, kernel_width, residual) in enumerate(self.convolution_spec):
+        for i, (out_channels, kernel_width, residual, conv_type) in enumerate(self.convolution_spec):
             if residual == 0:
                 residual_dim = out_channels
             else:
@@ -141,9 +134,17 @@ class ConvEncoder(EncoderModel):
             else:
                 padding = 0
             
+            if binarize:
+                if conv_type == 'xnor':
+                    conv_class = XNORConv1d
+                elif conv_type == 'bwn':
+                    conv_class = BinConv1d
+            else:
+                conv_class = Conv1d
+
             # create a convolution for the layer
             self.convolutions.append(
-                conv_type(
+                conv_class(
                     in_channels,
                     out_channels * 2,
                     kernel_width,
@@ -159,7 +160,7 @@ class ConvEncoder(EncoderModel):
             in_channels = out_channels
             layer_in_channels.append(out_channels)
         
-        self.fc2 = Linear(
+        self.fc2 = linear_type(
             in_channels,
             embedding_dim,
         )
@@ -224,7 +225,6 @@ class ConvEncoder(EncoderModel):
             
             # Apply a gated linear unit after each layer
             x = F.glu(x, dim=1)
-            # x = F.relu(x)
             # x = F.relu(x[:, :x.shape[1] // 2, :] + x[:,x.shape[1] // 2:, :])
 
             if residual is not None:
@@ -241,10 +241,6 @@ class ConvEncoder(EncoderModel):
         if encoder_padding_mask is not None:
             # encoder_padding_mask = encoder_padding_mask.transpose(1,2)
             x = x.masked_fill(encoder_padding_mask.unsqueeze(-1), 0)
-        
-        # TODO: why????
-        # scale gradients (this only affects backward, not forward)
-        # x = GradMultiply.apply(x, 1.0 / (2.0 * self.num_attention_layers))
 
         
         # add output to input embedding for attention
@@ -268,6 +264,7 @@ class ConvDecoder(DecoderModel):
         share_embed: bool,
         positional_embedding: bool,
         binarize: bool,
+        linear_type: type,
     ):
         super(ConvDecoder, self).__init__()
         self.trg_dictionary = trg_dictionary
@@ -304,16 +301,15 @@ class ConvDecoder(DecoderModel):
 
         in_channels = self.convolution_spec[0][0]
 
-        conv_type = Conv1d if not binarize else BinConv1d
 
 
-        self.fc1 = Linear(embed_dim, in_channels, dropout=dropout)
+        self.fc1 = linear_type(embed_dim, in_channels, dropout=dropout)
         self.projections = nn.ModuleList()
         self.convolutions = nn.ModuleList()
         self.attentions = nn.ModuleList()
         self.residuals = []
         layer_in_channels = [in_channels]
-        for i, (out_channels, kernel_width, residual) in enumerate(self.convolution_spec):
+        for i, (out_channels, kernel_width, residual, conv_type) in enumerate(self.convolution_spec):
             if residual == 0:
                 residual_dim = out_channels
             else:
@@ -332,10 +328,17 @@ class ConvDecoder(DecoderModel):
             else:
                 padding = 0
             
+            if binarize:
+                if conv_type == 'xnor':
+                    conv_class = XNORConv1d
+                elif conv_type == 'bwn':
+                    conv_class = BinConv1d
+            else:
+                conv_class = Conv1d
+            
             # create a convolution for the layer
-            print('loading 1dconv')
             self.convolutions.append(
-                conv_type(
+                conv_class(
                     in_channels,
                     out_channels * 2,
                     kernel_width,
@@ -353,18 +356,19 @@ class ConvDecoder(DecoderModel):
                 AttentionLayer(
                     out_channels,
                     embed_dim,
+                    linear_type,
                 ) if self.attention[i] else None
             )
 
             in_channels = out_channels
             layer_in_channels.append(out_channels)
 
-        self.fc2 = Linear(
+        self.fc2 = linear_type(
             out_channels,
             out_embed_dim,
         )
 
-        self.fc3 = Linear(
+        self.fc3 = linear_type(
             out_embed_dim,
             num_embeddings,
         )
@@ -396,11 +400,6 @@ class ConvDecoder(DecoderModel):
         # start convolutional layers
         x = self.fc1(x)
 
-
-        # TODO: is transpose necessary?
-        # x = x.transpose(0,1) if intermediate_state is None else x
-
-        avg_attn_scores = None
         num_attn_layers = len(self.attentions)
         residuals = [x]
 
@@ -420,32 +419,17 @@ class ConvDecoder(DecoderModel):
             if conv.padding[0] > 0:
                 x = x[:, :-conv.padding[0], :]  # remove future timestamps
             x = F.glu(x, dim=2)
-            #print(x.shape)
             # x = F.relu(x[:, :, :x.shape[2] // 2] + x[:, :, x.shape[2] // 2:])
 
             # attention
             if attn is not None:
-                # TODO: transpose?
-                # x = x.transpose(0, 1) if intermediate_state is None else x
-
                 x, attn_scores = attn(x, target_embedding, (encoder_a, encoder_b), encoder_padding_mask)
-                if not self.training and self.need_attn:
-                    attn_scores = attn_scores / num_attn_layers
-                    if avg_attn_scores is None:
-                        avg_attn_scores = attn_scores
-                    else:
-                        avg_attn_scores.add_(attn_scores)
-
-                # TODO transpose?
-                # x = x.transpose(0, 1) if intermediate_state is None else x
             
             # residual connection
             if residual is not None:
                 x = (x + residual) * math.sqrt(0.5)
             residuals.append(x)
-        
-        # x = x.transpose(0, 1) if intermediate_state is None else x
-        # TODO transpose?
+
         x = self.fc2(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.fc3(x)
@@ -468,8 +452,15 @@ def build_model(
     share_embed: bool,
     decoder_positional_embed: bool,
     binarize: bool,
+    linear_type: str,
 ) -> nn.Module:
-    print("calling")
+    linear_class = Linear
+    if binarize:
+        if linear_type == 'bwn':
+            linear_class = BinLinear
+        elif linear_type == 'xnor':
+            linear_class = XNORLinear
+
     encoder = ConvEncoder(
         src_vocab=src_vocab,
         embedding_dim=encoder_embed_dim,
@@ -477,6 +468,7 @@ def build_model(
         convolution_spec=encoder_conv_spec,
         dropout=encoder_dropout,
         binarize=binarize,
+        linear_type=linear_class,
     )
 
     decoder = ConvDecoder(
@@ -490,6 +482,7 @@ def build_model(
         share_embed=share_embed,
         positional_embedding=decoder_positional_embed,
         binarize=binarize,
+        linear_type=linear_class,
     )
 
     encoder.num_attention_layers = sum(layer is not None for layer in decoder.attentions)
@@ -507,8 +500,8 @@ def get_default_conv_spec() -> ConvSpecType:
     # convs += ' + [(2048, 1, 1)] * 2'  # final 2 layers use 1x1 convolutions
     # Above architecture experiences exploding gradients
     
-    convs = '[(256, 3, 1)] * 4'
-    bin_conv = '[(512, 3, 1)] * 4'
+    convs = "[(256, 3, 1, 'bwn')] * 4"
+    bin_conv = '[(512, 3, 1, None)] * 4'
     # convs = '[(256, 3, 1)] * 2 + [(512, 3, 1)] * 2'
 
     # convs = '[(512, 3, 1)] * 2 + [(1024, 3, 1)] * 2' # + [(2048, 1, 1)] * 2'
@@ -572,6 +565,7 @@ def multi30k_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--decoder_attention', type=bool, default=True, help='whether to use attention for the decoder')
     parser.add_argument('--share_embed', type=bool, default=False, help='whether to share the embedding layer')
     parser.add_argument('--decoder_positional_embed', type=bool, default=True, help='whether to use the positional embeddings')
+    parser.add_argument('--linear_type', type=str, default=None, help='the type of linear layer to use (None, bwn, xnor)')
 
 def add_args(parser: argparse.ArgumentParser) -> None:
     multi30k_args(parser)

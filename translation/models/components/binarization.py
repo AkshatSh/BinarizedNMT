@@ -19,6 +19,10 @@ from .binarized_convolution import (
     BinConv1d,
 )
 
+from .binarized_linear import (
+    BinLinear,
+)
+
 class Binarize(object):
     '''
     This object wraps the model passed in, to allow binary network training
@@ -56,12 +60,48 @@ class Binarize(object):
         model: nn.Module,
     ):
         super(Binarize, self).__init__()
+        self.modules = [
+            BinarizeConvolutionalModule(model),
+            BinarizeLinearModule(model),
+        ]
+
+    def binarization(self):
+        for module in self.modules:
+            module.binarization()
+    
+    def restore(self):
+        for module in self.modules:
+            module.restore()
+    
+    def update_gradients(self):
+        for module in self.modules:
+            module.update_gradients()
+
+class BinarizeModule(object):
+    def __init__(self, model: nn.Module):
+        pass
+    
+    def binarization(self) -> None:
+        pass
+    
+    def restore(self) -> None:
+        pass
+    
+    def update_gradients(self) -> None:
+        pass
+
+class BinarizeConvolutionalModule(BinarizeModule):
+    def __init__(
+        self,
+        model: nn.Module,
+    ):
+        super(BinarizeConvolutionalModule, self).__init__(model)
         self.model = model
 
         # get the number of conv1d modules
         conv1d_count = 0
         for m in model.modules():
-            if isinstance(m, nn.Conv1d):
+            if isinstance(m, BinConv1d):
                 conv1d_count += 1
         
         start_range = 0
@@ -125,20 +165,135 @@ class Binarize(object):
         for index in range(len(self.target_modules)):
             self.target_modules[index].data.copy_(self.saved_params[index])
     
-    def updateGradients(self):
+    def update_gradients(self):
         for index in range(len(self.target_modules)):
             curr_module = self.target_modules[index].data
             n = curr_module[0].nelement()
             s = curr_module.size()
 
+
             m = curr_module.norm(1, 2, keepdim=True).sum(1, keepdim=True).div(n).expand(s)
+
+            # clamping
             m[curr_module.lt(-1.0)] = 0 
             m[curr_module.gt(1.0)] = 0
 
+            # multiply gradients by norm
             m = m.mul(self.target_modules[index].grad.data)
+
+            # multiply gradients by sign
             m_add = curr_module.sign().mul(self.target_modules[index].grad.data)
+
+            # sum all the gradients by the sign
             m_add = m_add.sum(2, keepdim=True)\
                     .sum(1, keepdim=True).div(n).expand(s)
+            
+            # multiply the sum of gradients by sign of th module
+            m_add = m_add.mul(curr_module.sign())
+
+            self.target_modules[index].grad.data = m.add(m_add).mul(1.0-1.0/s[1]).mul(n)
+
+class BinarizeLinearModule(BinarizeModule):
+    def __init__(
+        self,
+        model: nn.Module,
+    ):
+        super(BinarizeLinearModule, self).__init__(model)
+        self.model = model
+
+        # get the number of conv1d modules
+        linear_count = 0
+        for m in model.modules():
+            if isinstance(m, BinLinear):
+                linear_count += 1
+        
+        start_range = 0
+        end_range = linear_count
+        self.bin_range = [i for i in range(start_range, end_range)]
+        self.num_of_params = len(self.bin_range)
+        self.saved_params = []
+        self.target_params = []
+        self.target_modules = []
+        index = 0
+        for m in model.modules():
+            if isinstance(m, BinLinear):
+                # save the weight
+                m = m.linear
+                saved_weight = m.weight.data.clone()
+                self.saved_params.append(saved_weight)
+                self.target_modules.append(m.weight)
+
+                # weight has the shape:
+                # (out_dim, in_dim)
+        print("Targeting {} linear layers.".format(len(self.target_modules)))
+    
+    def mean_center_conv_params(self):
+        for index in range(len(self.target_modules)):
+            s = self.target_modules[index].data.size()
+            negMean = self.target_modules[index].data.mean(1, keepdim=True).\
+                    mul(-1).expand_as(self.target_modules[index].data)
+            self.target_modules[index].data = self.target_modules[index].data.add(negMean)
+    
+    def clamp_conv_params(self):
+        for index in range(len(self.target_modules)):
+            self.target_modules[index].data = \
+                    self.target_modules[index].data.clamp(-1.0, 1.0)
+    
+    def save_params(self):
+        for index in range(len(self.target_modules)):
+            self.saved_params[index].copy_(self.target_modules[index].data)
+    
+    def binarize_conv_params(self):
+        for index in range(len(self.target_modules)):
+            # n = kernel_size * in_channels
+            curr_module = self.target_modules[index].data
+            n = curr_module[0].nelement()
+            s = curr_module.size()
+
+            # abs mean normalizes every filter and divides by n to get the 
+            # normalized mean
+            abs_mean = curr_module.norm(1, 1, keepdim=True).div(n).expand(s)
+
+            # binarized weight is
+            # sign(W) * abs_mean
+            self.target_modules[index].data = curr_module.sign().mul(abs_mean)
+
+    def binarization(self):
+        self.mean_center_conv_params()
+        self.clamp_conv_params()
+        self.save_params()
+        self.binarize_conv_params()
+    
+    def restore(self):
+        for index in range(len(self.target_modules)):
+            self.target_modules[index].data.copy_(self.saved_params[index])
+    
+    def update_gradients(self):
+        for index in range(len(self.target_modules)):
+            if (self.target_modules[index].grad is None):
+                # ('skipping {}'.format(index))
+                continue
+            curr_module = self.target_modules[index].data
+            n = curr_module[0].nelement()
+            s = curr_module.size()
+
+
+            m = curr_module.norm(1, 1, keepdim=True).div(n).expand(s)
+
+            # clamping
+            m[curr_module.lt(-1.0)] = 0 
+            m[curr_module.gt(1.0)] = 0
+
+            # multiply gradients by norm
+            m = m.mul(self.target_modules[index].grad.data)
+
+            # multiply gradients by sign
+            m_add = curr_module.sign().mul(self.target_modules[index].grad.data)
+
+            # sum all the gradients by the sign
+            m_add = m_add.sum(1, keepdim=True).div(n).expand(s)
+            
+            # multiply the sum of gradients by sign of the module
             m_add = m_add.mul(curr_module.sign())
 
             self.target_modules[index].grad.data = m.add(m_add).mul(1.0-1.0/s[1]).mul(n)

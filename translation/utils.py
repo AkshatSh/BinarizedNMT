@@ -186,6 +186,7 @@ def build_model(
             share_embed=args.share_embed,
             decoder_positional_embed=args.decoder_positional_embed,
             binarize=args.binarize,
+            linear_type=args.linear_type,
         )
     else:
         raise Exception(

@@ -170,7 +170,7 @@ def train(
 
                 if binarize:
                     binarized_model.restore()
-                    binarized_model.updateGradients()
+                    binarized_model.update_gradients()
 
                 # TODO: try gradient clipping? for exploding gradient
                 torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clip)
