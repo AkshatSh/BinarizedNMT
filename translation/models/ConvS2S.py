@@ -52,9 +52,6 @@ Implementation of the convolutional sequence to sequence architecture described 
 https://arxiv.org/pdf/1705.03122.pdf 
 
 Adopted from: Fair Seq https://github.com/pytorch/fairseq/blob/master/fairseq/models/fconv.py
-
-TODO: there is lots of logic for even sized kernels, but the hyper parameter tuning shows
-they aren't even used for translation? It will be simpler if this code is cut.
 '''
 
 ConvSpecEntry = Tuple[
