@@ -8,6 +8,8 @@ import torch
 from torch import nn, optim
 import torch.nn.functional as F
 
+from numba_matmul import mat_mul
+
 def bin_matmul(a, b):
     '''
     a is represented as eitehr -1 or 1
@@ -69,12 +71,19 @@ def run():
         size,
     )
 
+    output_numba = torch.Tensor(
+        batch,
+        out_channels,
+        size,
+    )
+
     
     # kernels_flat is only -1 or 1 
     for batch_i in range(batch):
         # multiply kernel_flat by inp_unf[batch_i]
         curr_matrix = inp_unf[batch_i]
         output[batch_i] = bin_matmul(kernels_flat, curr_matrix)
+        output_numba[batch_i] = mat_mul(kernels_flat, curr_matrix)
 
     # res = kernels_flat @ inp_unf
     res = output
