@@ -41,7 +41,11 @@ def fast_matmul(A, B, C):
     C[x, y] = tmp
 
 def mat_mul(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-    res_matrix = torch.Tensor((a.shape[0], b.shape[1]))
+    res_matrix = torch.zeros(size=(a.shape[0], b.shape[1]))
+    print(res_matrix.shape)
     a_np, b_np, res_np = a.cpu().numpy(), b.cpu().numpy(), res_matrix.cpu().numpy()
     fast_matmul(a_np, b_np, res_np)
     return torch.Tensor(res_np)
+
+#res = mat_mul(torch.Tensor([[1]]), torch.Tensor([[1]]))
+#print(res)

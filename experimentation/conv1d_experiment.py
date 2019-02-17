@@ -8,7 +8,7 @@ import torch
 from torch import nn, optim
 import torch.nn.functional as F
 
-from numba_matmul import mat_mul
+# from numba_matmul import mat_mul
 
 def bin_matmul(a, b):
     '''
@@ -40,7 +40,7 @@ def run():
     batch = 1
     in_channels = 25
     out_channels = 51
-    size = 200
+    size = 20
     torch.manual_seed(123)
     X = torch.rand(batch, in_channels, size)
     conv = nn.Conv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=1, bias=False)
@@ -83,7 +83,7 @@ def run():
         # multiply kernel_flat by inp_unf[batch_i]
         curr_matrix = inp_unf[batch_i]
         output[batch_i] = bin_matmul(kernels_flat, curr_matrix)
-        output_numba[batch_i] = mat_mul(kernels_flat, curr_matrix)
+        # output_numba[batch_i] = mat_mul(kernels_flat, curr_matrix)
 
     # res = kernels_flat @ inp_unf
     res = output
